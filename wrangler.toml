@@ -9,7 +9,7 @@ main = "worker/src/index.ts"
 
 [assets]
 directory = "dist"
-binding = "ASSETS"
+binding = "STATIC"
 
 [[d1_databases]]
 binding = "DB"

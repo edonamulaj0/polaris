@@ -27,13 +27,13 @@ export default {
       return app.fetch(request, env, ctx);
     }
 
-    if (env.ASSETS) {
-      const assetResponse = await env.ASSETS.fetch(request);
+    if (env.STATIC) {
+      const assetResponse = await env.STATIC.fetch(request);
       if (assetResponse.status !== 404) {
         return assetResponse;
       }
       // SPA fallback — client-side routes
-      return env.ASSETS.fetch(new Request(new URL('/index.html', request.url), request));
+      return env.STATIC.fetch(new Request(new URL('/index.html', request.url), request));
     }
 
     return new Response('Not found', { status: 404 });
