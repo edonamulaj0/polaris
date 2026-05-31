@@ -1,5 +1,5 @@
 // worker/src/index.ts
-// [WRK-1] Hono app with full API routes and scheduled ingest
+// Hono API + static asset fallback for unified Pages deploy
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
@@ -8,20 +8,38 @@ import { usersRouter } from './routes/users';
 import { articlesRouter } from './routes/articles';
 import { runIngest } from './jobs/ingest';
 
-const app = new Hono<{ Bindings: Env }>(); // [WRK-1]
+const app = new Hono<{ Bindings: Env }>();
 
-app.use('*', cors({ origin: '*', allowMethods: ['GET', 'POST', 'OPTIONS'] })); // [WRK-1]
+app.use('*', cors({ origin: '*', allowMethods: ['GET', 'POST', 'OPTIONS'] }));
 
 app.get('/api/health', (c) => {
-  return c.json({ ok: true, environment: c.env.ENVIRONMENT }); // [WRK-1]
+  return c.json({ ok: true, environment: c.env.ENVIRONMENT });
 });
 
-app.route('/api/users', usersRouter); // [WRK-2]
-app.route('/api/articles', articlesRouter); // [WRK-3]
+app.route('/api/users', usersRouter);
+app.route('/api/articles', articlesRouter);
 
 export default {
-  fetch: app.fetch, // [WRK-1]
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const url = new URL(request.url);
+
+    if (url.pathname.startsWith('/api')) {
+      return app.fetch(request, env, ctx);
+    }
+
+    if (env.ASSETS) {
+      const assetResponse = await env.ASSETS.fetch(request);
+      if (assetResponse.status !== 404) {
+        return assetResponse;
+      }
+      // SPA fallback — client-side routes
+      return env.ASSETS.fetch(new Request(new URL('/index.html', request.url), request));
+    }
+
+    return new Response('Not found', { status: 404 });
+  },
+
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(runIngest(env)); // [WRK-5]
+    ctx.waitUntil(runIngest(env));
   },
 };

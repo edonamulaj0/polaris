@@ -11,6 +11,10 @@ export default defineConfig(({ mode }) => {
   const twitterToken = env.VITE_TWITTER_BEARER_TOKEN || ''
 
   const proxy = {
+    '/api': {
+      target: 'http://127.0.0.1:8787',
+      changeOrigin: true,
+    },
     '/reddit': {
       target: 'https://www.reddit.com',
       changeOrigin: true,
