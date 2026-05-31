@@ -2,15 +2,22 @@ import { motion, useSpring, useMotionValueEvent } from 'framer-motion'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useFeedStore } from '../stores/feedStore'
+import { formatSource } from '../lib/displayUtils'
 
-export function TrendingPanel() {
+/** [EXP-3] category prop filters trending list to one topic */
+export function TrendingPanel({ category = null }) {
   const posts = useFeedStore((s) => s.posts)
   const trending = useMemo(() => {
     return [...posts]
-      .filter((p) => !p.hidden)
+      .filter((p) => {
+        if (p.hidden) return false // [EXP-3]
+        if (category === null) return true // [EXP-3]
+        const label = p.category === 'Tech' ? 'Technology' : p.category // [CAT-2]
+        return label === category // [EXP-3]
+      })
       .sort((a, b) => (b.num_comments || 0) - (a.num_comments || 0))
       .slice(0, 8)
-  }, [posts])
+  }, [posts, category]) // [EXP-3]
 
   return (
     <aside className="rounded-none border border-[var(--border)] bg-[var(--surface)] p-4">
@@ -52,7 +59,7 @@ function TrendingRow({ rank, post, comments }) {
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-[var(--muted)]">
             <span className="rounded-none bg-[var(--surface-hi)] px-1.5 py-0.5">
-              {post.subreddit || post.source}
+              {formatSource(post.subreddit) || post.source}
             </span>
             <motion.span key={label}>{label}</motion.span>
             <span>comments</span>

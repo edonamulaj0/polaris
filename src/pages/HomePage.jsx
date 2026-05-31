@@ -4,6 +4,7 @@ import { InfiniteScrollFeed } from '../components/InfiniteScrollFeed'
 import { SkeletonCard } from '../components/SkeletonCard'
 import { FeedSortControls } from '../components/FeedSortControls'
 import { TopicExplainerBanner } from '../components/TopicExplainerBanner'
+import { TrendingStrip } from '../components/TrendingStrip'
 import { orderPostsForDisplay } from '../lib/feedOrdering'
 
 export function HomePage() {
@@ -73,8 +74,14 @@ export function HomePage() {
         </p>
       </header>
       {hasGdelt && <TopicExplainerBanner />}
+      <div className="mb-8 -mx-4 sm:-mx-6 lg:hidden">
+        <TrendingStrip />
+      </div>
       <FeedSortControls value={sort} onChange={setSort} className="mb-6" />
-      <InfiniteScrollFeed posts={displayPosts} />
+      <InfiniteScrollFeed
+        posts={displayPosts}
+        className="grid grid-cols-1 gap-8 xl:grid-cols-2 xl:gap-10"
+      />
     </div>
   )
 }

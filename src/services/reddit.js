@@ -69,12 +69,15 @@ export function normalizePost(child, subreddit) {
     thumb ||
     `https://picsum.photos/seed/${p.id}/960/520`
 
+  const category = guessCategory(`${p.subreddit || subreddit} ${p.title}`)
+  if (!category) return null // [CAT-3]
+
   return {
     id,
     redditId: p.id,
     source: 'reddit',
     subreddit: `r/${p.subreddit || subreddit}`,
-    category: guessCategory(p.subreddit || subreddit),
+    category,
     title: p.title,
     url: `https://reddit.com${p.permalink}`,
     score: p.ups ?? p.score ?? 0,

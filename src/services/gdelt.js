@@ -19,12 +19,16 @@ export async function fetchGdeltTopics({ limit = 20 } = {}) {
     if (!res.ok) return []
     const json = await res.json()
     const articles = json.articles || []
-    return articles.map((a, i) => ({
-      id: `gdelt-${a.url ? btoa(a.url).slice(0,12) : i}`,
-      source: 'gdelt',
-      subreddit: 'r/world',
-      category: guessCategory(a.title || ''),
-      title: a.title || '',
+    return articles
+      .map((a, i) => {
+        const category = guessCategory(a.title || '')
+        if (!category) return null // [CAT-3]
+        return {
+          id: `gdelt-${a.url ? btoa(a.url).slice(0, 12) : i}`,
+          source: 'gdelt',
+          subreddit: 'r/world',
+          category,
+          title: a.title || '',
       url: a.url || '',
       score: Math.floor(Math.random() * 800 + 100),
       num_comments: 0,
@@ -40,7 +44,9 @@ export async function fetchGdeltTopics({ limit = 20 } = {}) {
       sources: [{ type: 'news', title: a.title, url: a.url, domain: safeDomain(a.url) }],
       redditComments: [],
       tweets: [],
-    }))
+        }
+      })
+      .filter(Boolean)
   } catch {
     return []
   }

@@ -1,17 +1,21 @@
 /** Canonical category filters for Explore (client-side). */
-export const EXPLORE_CATEGORIES = ['All', 'Politics', 'Tech', 'Society', 'Science', 'Culture']
+export const EXPLORE_CATEGORIES = ['All', 'Technology', 'Science', 'Nature'] // [CAT-1]
 
 /** @typedef {'relevance' | 'recent' | 'popular'} FeedSortMode */
 
 /**
- * @param {Array<{ id: string, createdUtc?: number, score?: number, num_comments?: number }>} items
+ * @param {Array<{ id: string, createdUtc?: number, publishedAt?: number, score?: number, num_comments?: number }>} items
  * @param {FeedSortMode} mode
  * @param {Array<{ id: string }>} baselinePosts Full feed order (e.g. store `posts`) for relevance.
  */
 export function orderPostsForDisplay(items, mode, baselinePosts) {
   const copy = [...items]
   if (mode === 'recent') {
-    copy.sort((a, b) => (b.createdUtc ?? 0) - (a.createdUtc ?? 0))
+    copy.sort((a, b) => {
+      const aTs = a.createdUtc ?? a.publishedAt ?? 0 // [FE-1]
+      const bTs = b.createdUtc ?? b.publishedAt ?? 0 // [FE-1]
+      return bTs - aTs
+    })
     return copy
   }
   if (mode === 'popular') {

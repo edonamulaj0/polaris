@@ -59,6 +59,25 @@
   --stance-against-text: var(--signal);
   --stance-neutral-bg:  var(--ink-800);
   --stance-neutral-text: var(--muted);
+
+  /* Both-sides section tokens */
+  --side-for-border:     rgba(232,232,239,.20);
+  --side-for-header:     var(--ink-100);
+  --side-against-border: rgba(217,48,37,.25);
+  --side-against-header: var(--signal);
+  --argument-bg:         var(--surface-hi);
+  --argument-border:     var(--border);
+  --objection-bg:        rgba(217,48,37,.06);
+  --objection-border:    rgba(217,48,37,.20);
+  --ground-bg:           var(--surface);
+
+  /* Voting widget tokens */
+  --vote-for-active:         var(--ink-100);
+  --vote-for-active-text:    var(--page);
+  --vote-against-active:     var(--signal);
+  --vote-against-active-text: var(--signal-on);
+  --vote-neutral-active:     var(--ink-500);
+  --vote-neutral-active-text: var(--ink-000);
 }
 
 /* ─── Light theme ───────────────────────────────────────────────────── */
@@ -104,6 +123,25 @@
   --stance-against-text: var(--signal);
   --stance-neutral-bg:  var(--ink-800);
   --stance-neutral-text: var(--muted);
+
+  /* Both-sides section tokens */
+  --side-for-border:     rgba(42,42,50,.15);
+  --side-for-header:     var(--ink-100);
+  --side-against-border: rgba(217,48,37,.25);
+  --side-against-header: var(--signal);
+  --argument-bg:         var(--surface-hi);
+  --argument-border:     var(--border);
+  --objection-bg:        rgba(217,48,37,.06);
+  --objection-border:    rgba(217,48,37,.20);
+  --ground-bg:           var(--surface);
+
+  /* Voting widget tokens */
+  --vote-for-active:         #1a1a22;
+  --vote-for-active-text:    var(--page);
+  --vote-against-active:     var(--signal);
+  --vote-against-active-text: var(--signal-on);
+  --vote-neutral-active:     var(--ink-500);
+  --vote-neutral-active-text: var(--ink-000);
 }
 
 /* ─── Reset & base ───────────────────────────────────────────────────── */
@@ -185,3 +223,7 @@ hr.signal { border: none; height: 2px; background: var(--signal); width: 2.5rem;
 ::-webkit-scrollbar       { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
 ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 2px; }
+
+/* Scrollbar hide — used by TrendingStrip and any horizontal scroll container */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }

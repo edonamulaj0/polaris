@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { CATEGORIES } from '../data/categories'
 
 const emptyStats = () => ({
   postsCreated: 0,
@@ -18,7 +19,7 @@ function displayNameFromJwt(p) {
   return (combined || 'Member').slice(0, 120)
 }
 
-/** @param {string} iso `YYYY-MM-DD` (calendar date in local terms when parsed as UTC midnight is wrong — parse parts manually) */
+/** @param {string} iso `YYYY-MM-DD` */
 function ageFromBirthDateString(iso) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || '').trim())
   if (!m) return null
@@ -46,8 +47,10 @@ export const useUserStore = create(
       name: '',
       /** @type {number | null} legacy / cache when using date of birth */
       age: null,
-      /** `YYYY-MM-DD`, device-local; reused after Google sign-out */
+      /** `YYYY-MM-DD` */
       birthDate: '',
+      /** [FE-2] true once birthday is saved to Worker (write-once) */
+      birthLocked: false,
       commentHistory: [],
       stanceHistory: [],
       joinedDiscussionIds: [],
@@ -57,18 +60,25 @@ export const useUserStore = create(
       likedDiscussionIds: [],
 
       /**
-       * Persist only what we need from Google: sub, email, name.
+       * Persist Google profile and upsert user in D1 (fire-and-forget).
        * @param {Record<string, unknown>} jwtPayload — decoded ID token claims
        */
       setGoogleProfileFromJwt: (jwtPayload) => {
         const sub = typeof jwtPayload.sub === 'string' ? jwtPayload.sub.trim() : ''
         const email = typeof jwtPayload.email === 'string' ? jwtPayload.email.trim() : ''
         if (!sub || !email) return
+        const name = displayNameFromJwt(jwtPayload)
         set({
           googleSub: sub,
           email: email.slice(0, 254),
-          name: displayNameFromJwt(jwtPayload),
+          name,
         })
+
+        fetch('/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sub, email, name }),
+        }).catch(() => {}) // [FE-2] fire-and-forget upsert
       },
 
       setAge: (raw) => {
@@ -88,16 +98,54 @@ export const useUserStore = create(
       },
 
       /**
+       * [FE-2] Save birthday to Worker (write-once). Falls back to local-only on network error.
        * @param {string} iso `YYYY-MM-DD`
+       * @returns {Promise<{ ok: boolean, error?: string }>}
        */
-      setBirthDate: (iso) => {
+      setBirthDate: async (iso) => {
         const trimmed = String(iso || '').trim()
         const computed = ageFromBirthDateString(trimmed)
         if (computed == null || computed < 13 || computed > 120) {
           set({ birthDate: '', age: null })
-          return
+          return { ok: false, error: 'invalid_date' }
         }
-        set({ birthDate: trimmed, age: computed })
+
+        if (get().birthLocked) {
+          return { ok: false, error: 'birthday_already_set' }
+        }
+
+        const sub = get().googleSub
+        if (!sub) {
+          set({ birthDate: trimmed, age: computed, birthLocked: true })
+          return { ok: true }
+        }
+
+        try {
+          const res = await fetch(`/api/users/${encodeURIComponent(sub)}/birthday`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ birthDate: trimmed }),
+          }) // [FE-2]
+
+          if (res.ok) {
+            set({ birthDate: trimmed, age: computed, birthLocked: true }) // [FE-2]
+            return { ok: true }
+          }
+
+          if (res.status === 409) {
+            const data = await res.json().catch(() => ({}))
+            set({
+              birthLocked: true, // [FE-2]
+              birthDate: data.birthDate || get().birthDate, // [FE-2]
+            })
+            return { ok: false, error: 'birthday_already_set' }
+          }
+
+          return { ok: false, error: 'server_error' }
+        } catch {
+          set({ birthDate: trimmed, age: computed }) // [FE-2] graceful local fallback
+          return { ok: false, error: 'network_error' }
+        }
       },
 
       /** Clears Google session only; keeps birthday, age cache, and activity on this device */
@@ -137,7 +185,7 @@ export const useUserStore = create(
         const h = {
           discussionId,
           title,
-          category: category || 'Society',
+          category: category || CATEGORIES[0],
           stance,
           at: Date.now(),
         }
@@ -217,12 +265,12 @@ export const useUserStore = create(
       isDiscussionLiked: (discussionId) => (get().likedDiscussionIds ?? []).includes(discussionId),
 
       categoryEngagement: () => {
-        const cats = ['Politics', 'Tech', 'Society', 'Science', 'Culture']
-        const counts = Object.fromEntries(cats.map((c) => [c, 0]))
+        const counts = Object.fromEntries(CATEGORIES.map((c) => [c, 0])) // [CAT-1]
         for (const h of get().commentHistory) {
           const c = h.category
-          if (counts[c] !== undefined) counts[c]++
-          else counts.Society++
+          if (c === 'Tech') counts.Technology = (counts.Technology || 0) + 1 // [CAT-2]
+          else if (counts[c] !== undefined) counts[c]++
+          else counts[CATEGORIES[0]]++
         }
         return counts
       },
@@ -246,6 +294,7 @@ export const useUserStore = create(
         name: s.name,
         age: s.age,
         birthDate: s.birthDate,
+        birthLocked: s.birthLocked, // [FE-2]
         commentHistory: s.commentHistory,
         stanceHistory: s.stanceHistory,
         joinedDiscussionIds: s.joinedDiscussionIds,

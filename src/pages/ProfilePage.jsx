@@ -1,14 +1,8 @@
 import { motion } from 'framer-motion'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { CATEGORIES } from '../data/categories'
 import { useUserStore } from '../stores/userStore'
-
-function toIsoLocalDate(d) {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
 
 /** @param {string} iso `YYYY-MM-DD` */
 function formatBirthdayLong(iso) {
@@ -33,39 +27,6 @@ const defaultStats = {
   likesGiven: 0,
 }
 
-function ProfileBirthdayEditor({ birthDate, dobMin, dobMax, setBirthDate }) {
-  const [dobEdit, setDobEdit] = useState(birthDate || '')
-  return (
-    <section className="mt-8 rounded-none border border-[var(--border)] bg-[var(--surface)] p-4">
-      <h2 className="font-heading text-sm font-semibold text-[var(--text)]">Update birthday</h2>
-      <p className="mt-1 text-xs text-[var(--muted)]">
-        Stored only on this device. Kept when you sign out of Google until you clear site data.
-      </p>
-      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end">
-        <div className="min-w-0 flex-1">
-          <label className="text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)]">Date</label>
-          <input
-            type="date"
-            min={dobMin}
-            max={dobMax}
-            value={dobEdit}
-            onChange={(e) => setDobEdit(e.target.value)}
-            className="mt-1 w-full rounded-none border border-[var(--border)] bg-[var(--surface-hi)] px-3 py-2.5 text-sm text-[var(--text)] outline-none focus:border-[var(--signal)]/45"
-          />
-        </div>
-        <button
-          type="button"
-          disabled={!dobEdit || dobEdit < dobMin || dobEdit > dobMax}
-          onClick={() => setBirthDate(dobEdit)}
-          className="rounded-none bg-[var(--signal)] px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-[var(--signal-on)] disabled:opacity-40"
-        >
-          Save birthday
-        </button>
-      </div>
-    </section>
-  )
-}
-
 function ProfileField({ label, children }) {
   return (
     <div className="border-b border-[var(--border)] py-3 last:border-0">
@@ -88,8 +49,8 @@ export function ProfilePage() {
   const selfEmail = useUserStore((s) => s.email)
   const googleSub = useUserStore((s) => s.googleSub)
   const birthDate = useUserStore((s) => s.birthDate)
+  const birthLocked = useUserStore((s) => s.birthLocked) // [FE-2]
   const profileAge = useUserStore((s) => s.getProfileAge())
-  const setBirthDate = useUserStore((s) => s.setBirthDate)
   const commentHistory = useUserStore((s) => s.commentHistory)
   const joinedDiscussionIds = useUserStore((s) => s.joinedDiscussionIds)
   const statsRaw = useUserStore((s) => s.stats)
@@ -100,12 +61,12 @@ export function ProfilePage() {
     [activityFeedRaw],
   )
   const categoryEngagement = useMemo(() => {
-    const cats = ['Politics', 'Tech', 'Society', 'Science', 'Culture']
-    const counts = Object.fromEntries(cats.map((c) => [c, 0]))
+    const counts = Object.fromEntries(CATEGORIES.map((c) => [c, 0])) // [CAT-1]
     for (const h of commentHistory) {
       const c = h.category
-      if (counts[c] !== undefined) counts[c]++
-      else counts.Society++
+      if (c === 'Tech') counts.Technology = (counts.Technology || 0) + 1 // [CAT-2]
+      else if (counts[c] !== undefined) counts[c]++
+      else counts[CATEGORIES[0]]++
     }
     return counts
   }, [commentHistory])
@@ -116,17 +77,10 @@ export function ProfilePage() {
   const isOwn = isMeRoute || (!!selfName && routeName === selfName)
   const birthdayLabel = formatBirthdayLong(birthDate)
 
-  const cats = ['Politics', 'Tech', 'Society', 'Science', 'Culture']
+  const cats = CATEGORIES // [CAT-1]
   const maxCat = Math.max(1, ...cats.map((c) => (isOwn ? categoryEngagement[c] : 0) || 0))
 
   const historyRows = isOwn ? commentHistory : []
-
-  const { dobMin, dobMax } = useMemo(() => {
-    const today = new Date()
-    const max = new Date(today.getFullYear() - 13, today.getMonth(), today.getDate())
-    const min = new Date(today.getFullYear() - 120, today.getMonth(), today.getDate())
-    return { dobMin: toIsoLocalDate(min), dobMax: toIsoLocalDate(max) }
-  }, [])
 
   const statTiles = [
     { label: 'Posts started', value: stats.postsCreated },
@@ -167,7 +121,18 @@ export function ProfilePage() {
           <dl>
             <ProfileField label="Name">{selfName?.trim() || '—'}</ProfileField>
             <ProfileField label="Email">{selfEmail?.trim() || '—'}</ProfileField>
-            <ProfileField label="Birthday">{birthdayLabel || '—'}</ProfileField>
+            <ProfileField label="Birthday">
+              {birthdayLabel || (
+                <span className="text-[var(--muted)]">
+                  Not set
+                  {!birthLocked && (
+                    <span className="mt-1 block text-xs">
+                      Set during sign-in — cannot be changed afterward.
+                    </span>
+                  )}
+                </span>
+              )}
+            </ProfileField>
             <ProfileField label="Age (from birthday)">
               {profileAge != null ? profileAge : '—'}
             </ProfileField>
@@ -195,16 +160,6 @@ export function ProfilePage() {
             ))}
           </ul>
         </section>
-      )}
-
-      {isOwn && (
-        <ProfileBirthdayEditor
-          key={birthDate || 'new'}
-          birthDate={birthDate}
-          dobMin={dobMin}
-          dobMax={dobMax}
-          setBirthDate={setBirthDate}
-        />
       )}
 
       {isOwn && (

@@ -16,12 +16,16 @@ function toIsoLocalDate(d) {
 export function AuthGate() {
   const googleSub = useUserStore((s) => s.googleSub)
   const birthDate = useUserStore((s) => s.birthDate)
-  const profileAge = useUserStore((s) => s.getProfileAge())
+  const birthLocked = useUserStore((s) => s.birthLocked) // [FE-3]
   const setGoogleProfileFromJwt = useUserStore((s) => s.setGoogleProfileFromJwt)
   const setBirthDate = useUserStore((s) => s.setBirthDate)
   const resolved = useThemeStore((s) => s.resolved)
   const [dobDraft, setDobDraft] = useState('')
   const [hydrated, setHydrated] = useState(() => useUserStore.persist.hasHydrated())
+  const [serverChecked, setServerChecked] = useState(false) // [FE-3]
+  const [checkingServer, setCheckingServer] = useState(false) // [FE-3]
+  const [birthdayError, setBirthdayError] = useState('') // [FE-3]
+  const [savingBirthday, setSavingBirthday] = useState(false) // [FE-3]
 
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
 
@@ -43,8 +47,43 @@ export function AuthGate() {
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [birthDate])
 
+  useEffect(() => {
+    if (!googleSub?.trim() || birthLocked) {
+      setServerChecked(true) // [FE-3]
+      return undefined
+    }
+
+    let cancelled = false
+    setCheckingServer(true) // [FE-3]
+    setServerChecked(false) // [FE-3]
+
+    fetch(`/api/users/${encodeURIComponent(googleSub)}/birthday`) // [FE-3]
+      .then((res) => (res.ok ? res.json() : { set: false }))
+      .then((data) => {
+        if (cancelled) return
+        if (data.set) {
+          useUserStore.setState({
+            birthLocked: true, // [FE-3]
+            birthDate: data.birthDate || useUserStore.getState().birthDate, // [FE-3]
+          })
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) {
+          setServerChecked(true) // [FE-3]
+          setCheckingServer(false) // [FE-3]
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [googleSub, birthLocked])
+
   const needsGoogle = !googleSub?.trim()
-  const needsDob = googleSub?.trim() && profileAge == null
+  const needsDob =
+    googleSub?.trim() && !birthLocked && serverChecked && !checkingServer // [FE-3]
   const open = hydrated && Boolean(clientId) && (needsGoogle || needsDob)
   const missingClient = hydrated && !clientId
 
@@ -53,9 +92,18 @@ export function AuthGate() {
   const dobOk = dobDraft >= dobMin && dobDraft <= dobMax
   const googleTheme = resolved === 'dark' ? 'filled_black' : 'outline'
 
+  async function handleSaveBirthday() {
+    if (!dobOk || savingBirthday || birthLocked) return // [FE-3]
+    setBirthdayError('') // [FE-3]
+    setSavingBirthday(true) // [FE-3]
+    const result = await setBirthDate(dobDraft) // [FE-3]
+    setSavingBirthday(false) // [FE-3]
+    if (result.ok || result.error === 'birthday_already_set') return // [FE-3]
+    setBirthdayError("Couldn't save — try again") // [FE-3]
+  }
+
   return (
     <>
-      {/* [REFACTOR U-2] Block page flash while Zustand persist hydrates */}
       <AnimatePresence>
         {!hydrated && (
           <motion.div
@@ -117,9 +165,8 @@ export function AuthGate() {
                 Sign in to Polaris
               </h2>
               <p className="mt-2 text-sm text-[var(--muted)]">
-                Use Google to continue. We read your name and email from the sign-in token and keep them only in this browser. Google’s default
-                sign-in does not include birthday or age—after sign-in you’ll enter your date of birth once; it stays on this device and is kept
-                when you sign out of Google so you are not asked again.
+                Use Google to continue. We read your name and email from the sign-in token. After sign-in you’ll enter
+                your date of birth once — it is saved to your account and cannot be changed later.
               </p>
               <div className="mt-6 flex justify-center">
                 <GoogleLogin
@@ -127,7 +174,7 @@ export function AuthGate() {
                     if (!res.credential) return
                     try {
                       const payload = jwtDecode(res.credential)
-                      setGoogleProfileFromJwt(payload)
+                      setGoogleProfileFromJwt(payload) // [FE-3] triggers /api/users upsert
                     } catch {
                       // ignore malformed token
                     }
@@ -165,8 +212,8 @@ export function AuthGate() {
                 Date of birth
               </h2>
               <p className="mt-2 text-sm text-[var(--muted)]">
-                Saved only in this browser. We use it to verify you’re at least 13 and to show your age on your profile; it is not sent to Google.
-                If you already saved a birthday on this device, it is reused after you sign in again.
+                Required once per account. We use it to verify you’re at least 13 and to show your age on your profile.
+                This cannot be changed after you save it.
               </p>
               <label className="mt-4 block text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
                 Birthday
@@ -176,21 +223,27 @@ export function AuthGate() {
                 min={dobMin}
                 max={dobMax}
                 value={dobDraft}
-                onChange={(e) => setDobDraft(e.target.value)}
-                className="mt-1 w-full rounded-none border border-[var(--border)] bg-[var(--surface-hi)] px-3 py-3 text-[var(--text)] outline-none focus:border-[var(--signal)]/45"
+                disabled={birthLocked || savingBirthday} // [FE-3]
+                onChange={(e) => {
+                  setDobDraft(e.target.value)
+                  setBirthdayError('')
+                }}
+                className="mt-1 w-full rounded-none border border-[var(--border)] bg-[var(--surface-hi)] px-3 py-3 text-[var(--text)] outline-none focus:border-[var(--signal)]/45 disabled:opacity-50"
               />
+              {birthdayError && (
+                <p className="mt-2 text-sm text-[var(--signal)]" role="alert">
+                  {birthdayError}
+                </p>
+              )}
               <motion.button
                 type="button"
-                disabled={!dobOk}
+                disabled={!dobOk || savingBirthday || birthLocked} // [FE-3]
                 className="signal-glow-hover mt-5 w-full rounded-none bg-[var(--signal)] py-3 text-sm font-bold uppercase tracking-wide text-[var(--signal-on)] disabled:cursor-not-allowed disabled:opacity-40"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={() => {
-                  if (!dobOk) return
-                  setBirthDate(dobDraft)
-                }}
+                onClick={handleSaveBirthday}
               >
-                Continue
+                {savingBirthday ? 'Saving…' : 'Continue'}
               </motion.button>
             </motion.div>
           </motion.div>

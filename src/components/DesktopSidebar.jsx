@@ -4,7 +4,6 @@ import {
 } from 'react-icons/io5'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { LogoMark } from './LogoMark'
-import { ThemeToggle } from './ThemeToggle'
 import { useUserStore } from '../stores/userStore'
 
 const linkBase =
@@ -79,16 +78,12 @@ export function DesktopSidebar({ onNewDiscussion }) {
         <button
           type="button"
           onClick={onNewDiscussion}
-          className="signal-glow-hover flex w-full items-center justify-center gap-2 rounded-none border border-[var(--signal)] bg-[var(--signal)] py-2 text-[10px] font-bold uppercase tracking-[.1em] text-[var(--signal-on)] transition-colors hover:bg-[var(--signal-dim)] xl:justify-start"
+          className="signal-glow-hover flex w-full items-center justify-center gap-2 rounded-none border border-[var(--signal)] bg-[var(--signal)] py-3 text-[10px] font-bold uppercase tracking-[.1em] text-[var(--signal-on)] transition-colors xl:justify-start xl:px-3"
           title="Submit Topic"
         >
-          <IoAddOutline className="h-4 w-4 shrink-0 xl:hidden" aria-hidden />
+          <IoAddOutline className="h-5 w-5 shrink-0" aria-hidden />
           <span className="hidden xl:inline">Submit Topic</span>
         </button>
-
-        <div className="hidden justify-center xl:flex">
-          <ThemeToggle />
-        </div>
 
         {googleSub ? (
           <button

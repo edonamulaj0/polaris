@@ -1,4 +1,5 @@
 import { HiMenuAlt3, HiOutlineBell } from 'react-icons/hi'
+import { IoAddOutline } from 'react-icons/io5'
 import { motion } from 'framer-motion'
 import { LogoMark } from './LogoMark'
 import { ThemeToggle } from './ThemeToggle'
@@ -23,11 +24,15 @@ export function AppNavbar({ onOpenNotifications, onOpenMenu, onNewDiscussion }) 
           <motion.button
             type="button"
             onClick={onNewDiscussion}
-            className="signal-glow-hover inline-flex rounded-none border border-[var(--signal)] bg-[var(--signal)] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[.12em] text-[var(--signal-on)]"
+            className="signal-glow-hover inline-flex whitespace-nowrap rounded-none border border-[var(--signal)] bg-[var(--signal)] px-3 py-1.5 text-[10px] font-bold uppercase tracking-[.12em] text-[var(--signal-on)]"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
+            aria-label="Submit Topic"
           >
-            Submit Topic
+            <span className="hidden sm:inline">Submit Topic</span>
+            <span className="sm:hidden">
+              <IoAddOutline className="h-4 w-4" aria-hidden />
+            </span>
           </motion.button>
 
           <ThemeToggle />

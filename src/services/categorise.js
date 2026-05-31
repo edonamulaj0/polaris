@@ -1,29 +1,35 @@
+import { CATEGORIES } from '../data/categories'
+
 /**
- * Shared category labelling for Reddit subreddits and article titles.
- * [REFACTOR P-1] Merged rule set formerly split across reddit.js and gdelt.js.
+ * [CAT-1] Client-side category guess for legacy Reddit/GDELT paths.
+ * Worker ingest uses server-side categorise.ts — this mirrors Technology/Science/Nature only.
  */
 export function guessCategory(text) {
-  const t = String(text).toLowerCase()
+  const t = String(text || '').toLowerCase()
 
-  // Subreddit-name rules (reddit.js)
-  if (t.includes('politics') || t.includes('worldnews')) return 'Politics'
-  if (t.includes('technology')) return 'Tech'
-  if (t.includes('science')) return 'Science'
-  if (t.includes('askreddit')) return 'Society'
-
-  // Title-keyword rules (gdelt.js)
   if (
-    /\b(ai|robot|software|algorithm|chip|semiconductor|cyber|hack|data|cloud|tech|digital)\b/.test(
+    /\b(ai|robot|software|algorithm|chip|cyber|hack|data|cloud|tech|digital|computer|internet|app|code|quantum|semiconductor|technology)\b/.test(
       t,
     )
-  )
-    return 'Tech'
+  ) {
+    return 'Technology' // [CAT-2]
+  }
+
   if (
-    /\b(climate|gene|vaccine|virus|asteroid|telescope|particle|physics|biology|chemistry|space)\b/.test(
+    /\b(climate|gene|vaccine|virus|asteroid|telescope|particle|physics|biology|chemistry|space|nasa|genome|protein|cancer|brain|neural|science)\b/.test(
       t,
     )
-  )
-    return 'Science'
+  ) {
+    return 'Science' // [CAT-1]
+  }
 
-  return 'Society'
+  if (
+    /\b(nature|wildlife|ecosystem|species|ocean|forest|biodiversity|conservation|animal|plant|coral|glacier|habitat|extinction|rewilding|environment)\b/.test(
+      t,
+    )
+  ) {
+    return 'Nature' // [CAT-1]
+  }
+
+  return null // [CAT-3] off-topic — discard at ingest
 }

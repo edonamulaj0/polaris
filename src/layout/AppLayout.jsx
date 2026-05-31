@@ -56,7 +56,7 @@ export function AppLayout() {
         <AnimatePresence mode="sync">
           <motion.main
             key={location.pathname}
-            className={`mx-auto w-full flex-1 px-4 py-6 sm:px-6 lg:px-10 ${isExplore ? 'max-w-6xl' : 'max-w-3xl'} ${anyOverlay ? '' : 'pb-[calc(4rem+env(safe-area-inset-bottom))]'} md:pb-12`}
+            className={`mx-auto w-full flex-1 px-4 py-6 sm:px-6 lg:px-10 ${isExplore ? 'max-w-6xl' : 'max-w-4xl'} ${anyOverlay ? '' : 'pb-[calc(4rem+env(safe-area-inset-bottom))]'} md:pb-12`}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}

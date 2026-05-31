@@ -12,7 +12,7 @@ const containerVariants = {
   },
 }
 
-export function InfiniteScrollFeed({ posts }) {
+export function InfiniteScrollFeed({ posts, className = 'flex flex-col gap-8 sm:gap-10' }) {
   const loadMore = useFeedStore((s) => s.loadMore)
   const loadingMore = useFeedStore((s) => s.loadingMore)
   const hasMore = useFeedStore((s) => s.hasMore)
@@ -34,7 +34,7 @@ export function InfiniteScrollFeed({ posts }) {
   return (
     <div>
       <motion.div
-        className="flex flex-col gap-6 sm:gap-8"
+        className={className}
         variants={containerVariants}
         initial="hidden"
         animate="visible"

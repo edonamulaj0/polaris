@@ -21,7 +21,7 @@ const modal = {
 
 export function NewDiscussionModal({ open, onClose, onSubmit }) {
   const [title, setTitle] = useState('')
-  const [category, setCategory] = useState('Politics')
+  const [category, setCategory] = useState(CATEGORIES[0]) // [CAT-1]
   const [stance, setStance] = useState('Neutral')
   const [description, setDescription] = useState('')
 
@@ -35,7 +35,7 @@ export function NewDiscussionModal({ open, onClose, onSubmit }) {
       description: description.trim(),
     })
     setTitle('')
-    setCategory('Politics')
+    setCategory(CATEGORIES[0]) // [CAT-1]
     setStance('Neutral')
     setDescription('')
     onClose()
