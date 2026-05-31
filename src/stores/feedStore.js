@@ -17,6 +17,23 @@ function mockPosts() {
   return MOCK_DISCUSSIONS.map((p) => ({ ...p, sources: [...(p.sources || [])] }))
 }
 
+/** Curated Guardian corpus: public/articles.json (no API keys required) */
+async function loadStaticArticles() {
+  try {
+    const res = await fetch('/articles.json', { cache: 'no-store' })
+    if (!res.ok) return null
+    const data = await res.json()
+    const articles = data?.articles
+    if (!Array.isArray(articles) || articles.length === 0) return null
+    return {
+      articles,
+      nextCursor: data.nextCursor ?? null,
+    }
+  } catch {
+    return null
+  }
+}
+
 /** [CAT-2] Legacy mock categories → new labels for fallback filtering */
 function mockMatchesCategory(post, cat) {
   if (post.category === cat) return true
@@ -95,26 +112,44 @@ export const useFeedStore = create((set, get) => ({
   bootstrap: async () => {
     set({ loading: true, error: null, activeCategory: null }) // [EXP-2]
     try {
-      const res = await fetch('/api/articles?limit=20') // [FE-1]
+      const res = await fetch('/api/articles?limit=50') // [FE-1]
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const { articles, nextCursor } = await res.json() // [FE-1]
-      set({
-        posts: (articles || []).map(normalizeArticle), // [FE-1]
-        nextCursor: nextCursor ?? null, // [FE-1]
-        hasMore: nextCursor != null, // [FE-1]
-        loading: false, // [FE-1]
-        lastRefresh: Date.now(), // [FE-1]
-      })
-    } catch (e) {
-      set({
-        posts: mockPosts(), // [FE-1]
-        hasMore: false, // [FE-1]
-        nextCursor: null, // [FE-1]
-        loading: false, // [FE-1]
-        error: String(e?.message || e), // [FE-1]
-        lastRefresh: Date.now(), // [FE-1]
-      })
+      if (articles?.length > 0) {
+        set({
+          posts: articles.map(normalizeArticle), // [FE-1]
+          nextCursor: nextCursor ?? null, // [FE-1]
+          hasMore: nextCursor != null, // [FE-1]
+          loading: false, // [FE-1]
+          lastRefresh: Date.now(), // [FE-1]
+        })
+        return
+      }
+    } catch {
+      /* fall through to static JSON */
     }
+
+    const staticFeed = await loadStaticArticles()
+    if (staticFeed) {
+      set({
+        posts: staticFeed.articles.map(normalizeArticle),
+        nextCursor: staticFeed.nextCursor,
+        hasMore: staticFeed.nextCursor != null,
+        loading: false,
+        error: null,
+        lastRefresh: Date.now(),
+      })
+      return
+    }
+
+    set({
+      posts: mockPosts(), // [FE-1]
+      hasMore: false, // [FE-1]
+      nextCursor: null, // [FE-1]
+      loading: false, // [FE-1]
+      error: 'Feed unavailable',
+      lastRefresh: Date.now(), // [FE-1]
+    })
   },
 
   loadMore: async () => {
@@ -128,41 +163,64 @@ export const useFeedStore = create((set, get) => ({
       const res = await fetch(`/api/articles?cursor=${nextCursor}&limit=20${catQs}`) // [EXP-2]
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const { articles, nextCursor: nc } = await res.json() // [FE-1]
-      set({
-        posts: [...posts, ...(articles || []).map(normalizeArticle)], // [FE-1]
-        nextCursor: nc ?? null, // [FE-1]
-        hasMore: nc != null, // [FE-1]
-        loadingMore: false, // [FE-1]
-        lastRefresh: Date.now(), // [FE-1]
-      })
+      if (articles?.length > 0) {
+        set({
+          posts: [...posts, ...articles.map(normalizeArticle)], // [FE-1]
+          nextCursor: nc ?? null, // [FE-1]
+          hasMore: nc != null, // [FE-1]
+          loadingMore: false, // [FE-1]
+          lastRefresh: Date.now(), // [FE-1]
+        })
+        return
+      }
     } catch {
-      set({ loadingMore: false, hasMore: false }) // [FE-1]
+      /* static feed is single-page */
     }
+    set({ loadingMore: false, hasMore: false }) // [FE-1]
   },
 
   fetchByCategory: async (cat) => {
     set({ loading: true, error: null, activeCategory: cat }) // [EXP-2]
     try {
       const res = await fetch(
-        `/api/articles?category=${encodeURIComponent(cat)}&limit=20`,
+        `/api/articles?category=${encodeURIComponent(cat)}&limit=50`,
       ) // [FE-1]
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const { articles, nextCursor } = await res.json() // [FE-1]
-      set({
-        posts: (articles || []).map(normalizeArticle), // [FE-1]
-        nextCursor: nextCursor ?? null, // [FE-1]
-        hasMore: nextCursor != null, // [FE-1]
-        loading: false, // [FE-1]
-        lastRefresh: Date.now(), // [FE-1]
-      })
-    } catch (e) {
-      set({
-        posts: mockPosts().filter((p) => mockMatchesCategory(p, cat)), // [FE-1]
-        hasMore: false, // [FE-1]
-        nextCursor: null, // [FE-1]
-        loading: false, // [FE-1]
-        error: String(e?.message || e), // [FE-1]
-      })
+      if (articles?.length > 0) {
+        set({
+          posts: articles.map(normalizeArticle), // [FE-1]
+          nextCursor: nextCursor ?? null, // [FE-1]
+          hasMore: nextCursor != null, // [FE-1]
+          loading: false, // [FE-1]
+          lastRefresh: Date.now(), // [FE-1]
+        })
+        return
+      }
+    } catch {
+      /* static fallback */
     }
+
+    const staticFeed = await loadStaticArticles()
+    if (staticFeed) {
+      const filtered = staticFeed.articles.filter((a) => a.category === cat)
+      set({
+        posts: filtered.map(normalizeArticle),
+        nextCursor: null,
+        hasMore: false,
+        loading: false,
+        error: null,
+        lastRefresh: Date.now(),
+      })
+      return
+    }
+
+    set({
+      posts: mockPosts().filter((p) => mockMatchesCategory(p, cat)), // [FE-1]
+      hasMore: false, // [FE-1]
+      nextCursor: null, // [FE-1]
+      loading: false, // [FE-1]
+      error: 'Feed unavailable', // [FE-1]
+    })
   },
 }))

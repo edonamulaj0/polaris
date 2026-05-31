@@ -1,5 +1,16 @@
 # Nexus — data layer notes
 
+## Guardian seed corpus (50 articles, no Gemini)
+
+The pipeline `npm run seed-articles` fetches recent Guardian stories, synthesises neutral multi-section prose locally (`scripts/synthesizeLocal.js`), and writes **`public/articles.json`**.
+
+The Vite app loads **`/articles.json`** when the Worker `/api/articles` endpoint is empty or unreachable (e.g. dev without `wrangler dev`). All 50 items render in the feed and discussion pages with full `article.*` sections and Guardian source links.
+
+```bash
+npm run seed-articles   # fetch + build
+npm run build-articles  # rebuild JSON from scripts/guardian-raw.json only
+```
+
 ## Curated feed (recommended for production)
 
 The batch script `scripts/fetchDiscussions.ts` runs **outside the browser** (Node + `tsx`):

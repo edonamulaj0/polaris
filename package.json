@@ -18,11 +18,16 @@
     "lockfile:pages": "npx -y npm@10.9.2 install",
     "preview": "vite preview",
     "fetch-discussions": "tsx --tsconfig tsconfig.scripts.json scripts/fetchDiscussions.ts",
+    "media-monitor": "node scripts/mediaMonitor.js",
+    "fetch-guardian": "node scripts/fetchGuardianBatch.js",
+    "build-articles": "node scripts/buildArticleSeed.js",
+    "seed-articles": "npm run fetch-guardian && npm run build-articles",
     "worker:dev": "npm run dev --prefix worker",
     "worker:deploy": "npm run deploy --prefix worker",
     "worker:db:apply": "npm run db:apply --prefix worker"
   },
   "dependencies": {
+    "@google/genai": "^1.52.0",
     "@react-oauth/google": "^0.13.5",
     "framer-motion": "^12.38.0",
     "jwt-decode": "^4.0.0",
