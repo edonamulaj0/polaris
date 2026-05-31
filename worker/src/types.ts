@@ -4,7 +4,6 @@
 export interface Env {
   DB: D1Database;
   AI: Ai;
-  STATIC?: Fetcher;
   GUARDIAN_API_KEY: string;
   GOOGLE_CLIENT_ID: string;
   GEMINI_API_KEY?: string; // [ART-2] optional fallback for synthesis

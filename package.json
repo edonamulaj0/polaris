@@ -10,7 +10,7 @@
     "dev": "vite",
     "dev:fresh": "rm -rf node_modules/.vite && vite --force",
     "build": "vite build",
-    "build:pages": "npm run build && npm ci --prefix worker --omit=dev",
+    "build:pages": "npm run build",
     "postbuild": "node scripts/verifyBundle.js",
     "verify:bundle": "node scripts/verifyBundle.js",
     "analyze": "vite-bundle-visualizer -c vite.config.js --open false -o stats.html",
@@ -18,9 +18,9 @@
     "lockfile:pages": "npx -y npm@10.9.2 install",
     "preview": "vite preview",
     "fetch-discussions": "tsx --tsconfig tsconfig.scripts.json scripts/fetchDiscussions.ts",
-    "worker:dev": "wrangler dev",
-    "worker:deploy": "wrangler deploy",
-    "worker:db:apply": "wrangler d1 execute polaris-db --remote --file=worker/schema.sql"
+    "worker:dev": "npm run dev --prefix worker",
+    "worker:deploy": "npm run deploy --prefix worker",
+    "worker:db:apply": "npm run db:apply --prefix worker"
   },
   "dependencies": {
     "@react-oauth/google": "^0.13.5",

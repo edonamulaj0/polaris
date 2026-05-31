@@ -1,31 +1,9 @@
-# Unified Cloudflare Pages + Worker config (repo root)
-# Pages Git builds detect this file and deploy static assets + Worker together.
+# Cloudflare Pages — static SPA + service binding to polaris-worker
 name = "polaris"
 compatibility_date = "2024-09-23"
-compatibility_flags = ["nodejs_compat"]
-
 pages_build_output_dir = "dist"
-main = "worker/src/index.ts"
 
-[assets]
-directory = "dist"
-binding = "STATIC"
-
-[[d1_databases]]
-binding = "DB"
-database_name = "polaris-db"
-database_id = "6cd23fd0-992f-4af3-ab5e-4e5a622df0c9"
-
-[ai]
-binding = "AI"
-
-[triggers]
-crons = ["0 */6 * * *"]
-
-# Secrets (set via CLI — never commit):
-#   npx wrangler secret put GUARDIAN_API_KEY
-#   npx wrangler secret put GOOGLE_CLIENT_ID
-#   npx wrangler secret put GEMINI_API_KEY   # optional
-
-[vars]
-ENVIRONMENT = "production"
+# Proxied by functions/api/[[path]].js for /api/* requests
+[[services]]
+binding = "API"
+service = "polaris-worker"

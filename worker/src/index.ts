@@ -1,5 +1,5 @@
 // worker/src/index.ts
-// Hono API + static asset fallback for unified Pages deploy
+// Hono API — deployed as polaris-worker (separate from Pages)
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
@@ -20,25 +20,7 @@ app.route('/api/users', usersRouter);
 app.route('/api/articles', articlesRouter);
 
 export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const url = new URL(request.url);
-
-    if (url.pathname.startsWith('/api')) {
-      return app.fetch(request, env, ctx);
-    }
-
-    if (env.STATIC) {
-      const assetResponse = await env.STATIC.fetch(request);
-      if (assetResponse.status !== 404) {
-        return assetResponse;
-      }
-      // SPA fallback — client-side routes
-      return env.STATIC.fetch(new Request(new URL('/index.html', request.url), request));
-    }
-
-    return new Response('Not found', { status: 404 });
-  },
-
+  fetch: app.fetch,
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(runIngest(env));
   },
