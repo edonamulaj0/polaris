@@ -28,6 +28,7 @@ export function AuthGate() {
   const [savingBirthday, setSavingBirthday] = useState(false) // [FE-3]
 
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+  const isProd = import.meta.env.PROD
 
   const { dobMin, dobMax } = useMemo(() => {
     const today = new Date()
@@ -134,10 +135,22 @@ export function AuthGate() {
                 Google Sign-In not configured
               </h2>
               <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">
-                Add <code className="rounded-none bg-[var(--surface-hi)] px-1.5 py-0.5 text-[var(--text)]">VITE_GOOGLE_CLIENT_ID</code> to{' '}
-                <code className="rounded-none bg-[var(--surface-hi)] px-1.5 py-0.5 text-[var(--text)]">.env</code> (OAuth 2.0 Web client from Google
-                Cloud Console) and restart the dev server. Authorized JavaScript origins should include your app origin (e.g.{' '}
-                <code className="rounded-none bg-[var(--surface-hi)] px-1.5 py-0.5">http://localhost:5173</code>).
+                {isProd ? (
+                  <>
+                    Set <code className="rounded-none bg-[var(--surface-hi)] px-1.5 py-0.5 text-[var(--text)]">VITE_GOOGLE_CLIENT_ID</code> in{' '}
+                    <strong className="font-medium text-[var(--text)]">Cloudflare Pages → Settings → Environment variables</strong> (Production and
+                    Preview), then trigger a new deploy. In Google Cloud Console, add{' '}
+                    <code className="rounded-none bg-[var(--surface-hi)] px-1.5 py-0.5">{typeof window !== 'undefined' ? window.location.origin : 'your site URL'}</code>{' '}
+                    to the OAuth client <strong className="font-medium text-[var(--text)]">Authorized JavaScript origins</strong> (and use the same client ID).
+                  </>
+                ) : (
+                  <>
+                    Add <code className="rounded-none bg-[var(--surface-hi)] px-1.5 py-0.5 text-[var(--text)]">VITE_GOOGLE_CLIENT_ID</code> to{' '}
+                    <code className="rounded-none bg-[var(--surface-hi)] px-1.5 py-0.5 text-[var(--text)]">.env</code> (OAuth 2.0 Web client from Google
+                    Cloud Console) and restart the dev server. Authorized JavaScript origins should include{' '}
+                    <code className="rounded-none bg-[var(--surface-hi)] px-1.5 py-0.5">http://localhost:5173</code>.
+                  </>
+                )}
               </p>
             </motion.div>
           </motion.div>
