@@ -1,0 +1,48 @@
+{
+  "name": "polaris",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "vite",
+    "dev:fresh": "rm -rf node_modules/.vite && vite --force",
+    "build": "vite build",
+    "postbuild": "node scripts/verifyBundle.js",
+    "verify:bundle": "node scripts/verifyBundle.js",
+    "analyze": "vite-bundle-visualizer -c vite.config.js --open false -o stats.html",
+    "lint": "eslint .",
+    "lockfile:pages": "npx -y npm@10.9.2 install",
+    "preview": "vite preview",
+    "fetch-discussions": "tsx --tsconfig tsconfig.scripts.json scripts/fetchDiscussions.ts"
+  },
+  "dependencies": {
+    "@react-oauth/google": "^0.13.5",
+    "framer-motion": "^12.38.0",
+    "jwt-decode": "^4.0.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-icons": "^5.6.0",
+    "react-router-dom": "^7.14.1",
+    "zustand": "^5.0.12"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@tailwindcss/vite": "^4.2.2",
+    "@types/node": "^22.19.3",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.4.0",
+    "tailwindcss": "^4.2.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.4",
+    "vite-bundle-visualizer": "^1.2.1"
+  }
+}

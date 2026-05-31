@@ -1,0 +1,187 @@
+@import 'tailwindcss';
+
+/* ─── Shared brand ──────────────────────────────────────────────────── */
+:root {
+  --signal:       #D93025;
+  --signal-dim:   #9A1F17;
+  --font-display: 'Bebas Neue', 'Impact', sans-serif;
+  --font-heading: 'DM Serif Display', Georgia, serif;
+  --font-body:    'IBM Plex Sans', 'Helvetica Neue', sans-serif;
+  --font-mono:    'IBM Plex Mono', monospace;
+
+  /* Stance — same hues both modes */
+  --for:     #E8E8EF;
+  --against: #D93025;
+  --neutral: #4A4A52;
+}
+
+/* ─── Dark theme (default) ──────────────────────────────────────────── */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --ink-950:  #0E0E0F;
+  --ink-900:  #161618;
+  --ink-800:  #1E1E21;
+  --ink-700:  #2A2A2E;
+  --ink-500:  #4A4A52;
+  --ink-300:  #9A9AA8;
+  --ink-100:  #E8E8EF;
+  --ink-000:  #F7F7FA;
+
+  --signal-muted: rgba(217,48,37,.12);
+  --signal-on:    #FFFFFF;
+
+  --page:         var(--ink-950);
+  --surface:      var(--ink-900);
+  --surface-hi:   var(--ink-800);
+  --border:       rgba(255,255,255,.07);
+  --border-hi:    rgba(255,255,255,.13);
+  --text:         var(--ink-100);
+  --text-hi:      var(--ink-000);
+  --muted:        var(--ink-300);
+  --overlay:      rgba(0,0,0,.65);
+  --shadow-card:  0 8px 32px rgba(0,0,0,.25);
+  --shadow-hover: 0 8px 32px rgba(217,48,37,.08);
+  --grain-opacity: 0.035;
+  --scrollbar-track: var(--ink-950);
+  --scrollbar-thumb: var(--ink-700);
+
+  --for:     #E8E8EF;
+  --neutral: #4A4A52;
+
+  --stance-for-bg:      rgba(232,232,239,.08);
+  --stance-for-text:    var(--for);
+  /* [REFACTOR U-1] Selected-state tokens — separate from idle for contrast */
+  --stance-for-selected-bg:   #3A3A44;
+  --stance-for-selected-text: var(--ink-000);
+  --stance-against-bg:  var(--signal-muted);
+  --stance-against-text: var(--signal);
+  --stance-neutral-bg:  var(--ink-800);
+  --stance-neutral-text: var(--muted);
+}
+
+/* ─── Light theme ───────────────────────────────────────────────────── */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --ink-950:  #F7F7FA;
+  --ink-900:  #FFFFFF;
+  --ink-800:  #F0F0F4;
+  --ink-700:  #E2E2EA;
+  --ink-500:  #9898A8;
+  --ink-300:  #5C5C6E;
+  --ink-100:  #2A2A32;
+  --ink-000:  #0E0E0F;
+
+  --signal-muted: rgba(217,48,37,.08);
+  --signal-on:    #FFFFFF;
+
+  --page:         var(--ink-950);
+  --surface:      var(--ink-900);
+  --surface-hi:   var(--ink-800);
+  --border:       rgba(0,0,0,.08);
+  --border-hi:    rgba(0,0,0,.14);
+  --text:         var(--ink-100);
+  --text-hi:      var(--ink-000);
+  --muted:        var(--ink-300);
+  --overlay:      rgba(14,14,15,.45);
+  --shadow-card:  0 4px 24px rgba(0,0,0,.06);
+  --shadow-hover: 0 8px 32px rgba(217,48,37,.12);
+  --grain-opacity: 0.025;
+  --scrollbar-track: var(--ink-950);
+  --scrollbar-thumb: var(--ink-700);
+
+  --for:     #2A2A32;
+  --neutral: #9898A8;
+
+  --stance-for-bg:      #F0F0F4;
+  --stance-for-text:    var(--for);
+  /* [REFACTOR U-1] Selected-state tokens — dark bg, light text in light mode */
+  --stance-for-selected-bg:   #2A2A32;
+  --stance-for-selected-text: #FFFFFF;
+  --stance-against-bg:  var(--signal-muted);
+  --stance-against-text: var(--signal);
+  --stance-neutral-bg:  var(--ink-800);
+  --stance-neutral-text: var(--muted);
+}
+
+/* ─── Reset & base ───────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  min-height: 100svh;
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text);
+  background-color: var(--page);
+  -webkit-font-smoothing: antialiased;
+  transition: background-color .2s ease, color .2s ease;
+}
+
+#root { min-height: 100svh; position: relative; z-index: 1; }
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: var(--grain-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ─── Typography utilities ───────────────────────────────────────────── */
+.font-display  { font-family: var(--font-display); letter-spacing: .04em; }
+.font-heading  { font-family: var(--font-heading); }
+.font-body     { font-family: var(--font-body); }
+.font-mono     { font-family: var(--font-mono); }
+
+/* ─── Signal accent animations ───────────────────────────────────────── */
+@keyframes signal-pulse {
+  0%,100% { box-shadow: 0 0 0 1px rgba(217,48,37,.3), 0 0 18px rgba(217,48,37,.15); }
+  50%     { box-shadow: 0 0 0 1px rgba(217,48,37,.55), 0 0 28px rgba(217,48,37,.28); }
+}
+.signal-glow-hover:hover { animation: signal-pulse 2s ease-in-out infinite; }
+
+/* ─── Verification badge ─────────────────────────────────────────────── */
+.badge-verified {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  padding: .2rem .6rem;
+  border-radius: 99px;
+  border: 1px solid rgba(217,48,37,.4);
+  background: var(--signal-muted);
+  color: var(--signal);
+  font-family: var(--font-body);
+  font-size: .6875rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+/* ─── Skeleton shimmer ───────────────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position:  200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skeleton-shimmer {
+  background: linear-gradient(90deg,
+    var(--surface) 0%,
+    var(--surface-hi) 50%,
+    var(--surface) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+/* ─── Horizontal rule / dividers ─────────────────────────────────────── */
+hr.signal { border: none; height: 2px; background: var(--signal); width: 2.5rem; margin: 0; }
+
+/* ─── Scrollbar ──────────────────────────────────────────────────────── */
+::-webkit-scrollbar       { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 2px; }
