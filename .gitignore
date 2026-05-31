@@ -7,26 +7,68 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Env (root .gitignore also covers the monorepo)
+# Environment & secrets
 .env
 .env.*
 !.env.example
 .dev.vars
+.dev.vars.*
+!.dev.vars.example
 
+# Dependencies
 node_modules/
+
+# Build output
 dist/
 dist-ssr/
 stats.html
+
+# Vite
 .vite/
 *.local
 
-# Editor directories and files
+# Wrangler / Cloudflare local dev
+.wrangler/
+.mf/
+
+# Caches
+.cache/
+**/.cache/
+*.cache
+.eslintcache
+.turbo/
+.parcel-cache/
+.svelte-kit/
+.nuxt/
+
+# TypeScript
+*.tsbuildinfo
+
+# Test / coverage
+coverage/
+.nyc_output/
+
+# Editor & OS
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
+*.swp
+*.swo
+*~
 .DS_Store
+Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# Cursor (local IDE/agent state)
+.cursor/
+
+# Deploy / hosting local config
+.vercel/
+.netlify/
+
+# Certs & keys
+*.pem
