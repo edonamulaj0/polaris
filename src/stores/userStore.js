@@ -43,6 +43,8 @@ export const useUserStore = create(
     (set, get) => ({
       /** Google subject (stable account id from ID token) */
       googleSub: '',
+      /** Short-lived Google ID token for authenticated API calls */
+      googleIdToken: '',
       email: '',
       name: '',
       /** @type {number | null} legacy / cache when using date of birth */
@@ -62,14 +64,16 @@ export const useUserStore = create(
       /**
        * Persist Google profile and upsert user in D1 (fire-and-forget).
        * @param {Record<string, unknown>} jwtPayload — decoded ID token claims
+       * @param {string} [idToken] — raw credential for Bearer auth
        */
-      setGoogleProfileFromJwt: (jwtPayload) => {
+      setGoogleProfileFromJwt: (jwtPayload, idToken = '') => {
         const sub = typeof jwtPayload.sub === 'string' ? jwtPayload.sub.trim() : ''
         const email = typeof jwtPayload.email === 'string' ? jwtPayload.email.trim() : ''
         if (!sub || !email) return
         const name = displayNameFromJwt(jwtPayload)
         set({
           googleSub: sub,
+          googleIdToken: typeof idToken === 'string' ? idToken : '',
           email: email.slice(0, 254),
           name,
         })
@@ -152,6 +156,7 @@ export const useUserStore = create(
       signOut: () =>
         set({
           googleSub: '',
+          googleIdToken: '',
           email: '',
           name: '',
         }),

@@ -10,7 +10,7 @@ export function TrendingPanel({ category = null }) {
   const trending = useMemo(() => {
     return [...posts]
       .filter((p) => {
-        if (p.hidden) return false // [EXP-3]
+        if (p.hidden || p.verified === false) return false // [WRK-6]
         if (category === null) return true // [EXP-3]
         const label = p.category === 'Tech' ? 'Technology' : p.category // [CAT-2]
         return label === category // [EXP-3]

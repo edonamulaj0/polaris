@@ -13,6 +13,11 @@ function normalizeArticle(article) {
   }
 }
 
+/** [WRK-6] Public feeds only show verified articles */
+function isPublicFeedPost(post) {
+  return !post.hidden && post.verified !== false
+}
+
 function mockPosts() {
   return MOCK_DISCUSSIONS.map((p) => ({ ...p, sources: [...(p.sources || [])] }))
 }
@@ -26,7 +31,7 @@ async function loadStaticArticles() {
     const articles = data?.articles
     if (!Array.isArray(articles) || articles.length === 0) return null
     return {
-      articles,
+      articles: articles.filter((a) => a.verified !== false),
       nextCursor: data.nextCursor ?? null,
     }
   } catch {
@@ -52,6 +57,8 @@ export const useFeedStore = create((set, get) => ({
   lastRefresh: 0,
   /** [EXP-2] When set, loadMore appends within this category */
   activeCategory: null,
+  /** Cached preview articles (pending, owner-only) keyed by id */
+  previewById: {},
 
   setPosts: (posts) => set({ posts }),
 
@@ -69,44 +76,52 @@ export const useFeedStore = create((set, get) => ({
     })
   },
 
-  /** Stub until Submit Topic Worker POST lands in a later phase */
-  prependLocalDiscussion: (data) => {
-    const id = `local-${Date.now()}`
-    const post = {
-      id,
-      source: 'polaris',
-      subreddit: data.category,
-      category: data.category,
-      title: data.title,
-      url: '#',
-      score: 1,
-      num_comments: 0,
-      thumbnail: null,
-      imageUrl: `https://picsum.photos/seed/${id}/960/520`,
-      createdUtc: Math.floor(Date.now() / 1000),
-      publishedAt: Math.floor(Date.now() / 1000),
-      stanceDistribution: { for: 34, against: 33, neutral: 33 },
-      civility: 78,
-      article: {
-        lede: data.description?.slice(0, 400) || 'Locally authored topic.',
-        background: '',
-        perspectives: '',
-        evidence: '',
-        counterpoint: '',
-        implications: '',
-        conclusion: '',
+  /** [WRK-6] POST user topic to Worker — returns { id, status } or throws */
+  submitTopic: async (data, idToken) => {
+    const res = await fetch('/api/topics', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${idToken}`,
       },
-      sources: [
-        {
-          title: 'Locally authored topic',
-          url: '#',
-          domain: 'polaris.local',
-        },
-      ],
-      verified: false,
+      body: JSON.stringify({
+        title: data.title,
+        category: data.category,
+        stance: data.stance,
+        description: data.description,
+      }),
+    })
+
+    if (res.status === 401) {
+      const err = new Error('unauthorized')
+      err.code = 'unauthorized'
+      throw err
     }
-    set({ posts: [post, ...get().posts] })
-    return id
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      const err = new Error(body.error || `HTTP ${res.status}`)
+      err.code = body.error || 'submit_failed'
+      throw err
+    }
+
+    return res.json()
+  },
+
+  /** [WRK-6] Fetch pending article preview for submitter */
+  fetchArticlePreview: async (id, idToken) => {
+    const cached = get().previewById[id]
+    if (cached) return cached
+
+    const res = await fetch(`/api/articles/${encodeURIComponent(id)}?preview=1`, {
+      headers: { Authorization: `Bearer ${idToken}` },
+    })
+
+    if (!res.ok) return null
+
+    const article = normalizeArticle(await res.json())
+    set({ previewById: { ...get().previewById, [id]: article } })
+    return article
   },
 
   bootstrap: async () => {
@@ -117,7 +132,7 @@ export const useFeedStore = create((set, get) => ({
       const { articles, nextCursor } = await res.json() // [FE-1]
       if (articles?.length > 0) {
         set({
-          posts: articles.map(normalizeArticle), // [FE-1]
+          posts: articles.map(normalizeArticle).filter(isPublicFeedPost), // [FE-1]
           nextCursor: nextCursor ?? null, // [FE-1]
           hasMore: nextCursor != null, // [FE-1]
           loading: false, // [FE-1]
@@ -132,7 +147,7 @@ export const useFeedStore = create((set, get) => ({
     const staticFeed = await loadStaticArticles()
     if (staticFeed) {
       set({
-        posts: staticFeed.articles.map(normalizeArticle),
+        posts: staticFeed.articles.map(normalizeArticle).filter(isPublicFeedPost),
         nextCursor: staticFeed.nextCursor,
         hasMore: staticFeed.nextCursor != null,
         loading: false,
@@ -143,7 +158,7 @@ export const useFeedStore = create((set, get) => ({
     }
 
     set({
-      posts: mockPosts(), // [FE-1]
+      posts: mockPosts().filter(isPublicFeedPost), // [FE-1]
       hasMore: false, // [FE-1]
       nextCursor: null, // [FE-1]
       loading: false, // [FE-1]
@@ -165,7 +180,10 @@ export const useFeedStore = create((set, get) => ({
       const { articles, nextCursor: nc } = await res.json() // [FE-1]
       if (articles?.length > 0) {
         set({
-          posts: [...posts, ...articles.map(normalizeArticle)], // [FE-1]
+          posts: [
+            ...posts,
+            ...articles.map(normalizeArticle).filter(isPublicFeedPost),
+          ], // [FE-1]
           nextCursor: nc ?? null, // [FE-1]
           hasMore: nc != null, // [FE-1]
           loadingMore: false, // [FE-1]
@@ -189,7 +207,7 @@ export const useFeedStore = create((set, get) => ({
       const { articles, nextCursor } = await res.json() // [FE-1]
       if (articles?.length > 0) {
         set({
-          posts: articles.map(normalizeArticle), // [FE-1]
+          posts: articles.map(normalizeArticle).filter(isPublicFeedPost), // [FE-1]
           nextCursor: nextCursor ?? null, // [FE-1]
           hasMore: nextCursor != null, // [FE-1]
           loading: false, // [FE-1]
@@ -205,7 +223,7 @@ export const useFeedStore = create((set, get) => ({
     if (staticFeed) {
       const filtered = staticFeed.articles.filter((a) => a.category === cat)
       set({
-        posts: filtered.map(normalizeArticle),
+        posts: filtered.map(normalizeArticle).filter(isPublicFeedPost),
         nextCursor: null,
         hasMore: false,
         loading: false,
@@ -216,7 +234,7 @@ export const useFeedStore = create((set, get) => ({
     }
 
     set({
-      posts: mockPosts().filter((p) => mockMatchesCategory(p, cat)), // [FE-1]
+      posts: mockPosts().filter((p) => mockMatchesCategory(p, cat)).filter(isPublicFeedPost), // [FE-1]
       hasMore: false, // [FE-1]
       nextCursor: null, // [FE-1]
       loading: false, // [FE-1]

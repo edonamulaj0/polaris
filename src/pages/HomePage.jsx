@@ -13,7 +13,7 @@ export function HomePage() {
   const [sort, setSort] = useState('relevance')
 
   const visiblePosts = useMemo(
-    () => posts.filter((p) => !p.hidden),
+    () => posts.filter((p) => !p.hidden && p.verified !== false),
     [posts],
   )
 

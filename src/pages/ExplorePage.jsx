@@ -33,7 +33,7 @@ export function ExplorePage() {
   }, [bootstrap])
 
   const visiblePosts = useMemo(
-    () => posts.filter((p) => !p.hidden),
+    () => posts.filter((p) => !p.hidden && p.verified !== false),
     [posts],
   )
 

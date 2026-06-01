@@ -48,3 +48,16 @@ export async function verifyGoogleToken(token: string, env: Env): Promise<Google
     name: data.name || data.email, // [WRK-2]
   };
 }
+
+/** Extract Bearer token from Authorization header */
+export function extractBearerToken(authHeader: string | undefined): string | null {
+  if (!authHeader?.startsWith('Bearer ')) return null;
+  const token = authHeader.slice(7).trim();
+  return token || null;
+}
+
+/** [WRK-6] Editor routes — compare against wrangler secret (never in client bundle) */
+export function verifyEditorSecret(token: string | null, env: Env): boolean {
+  if (!token || !env.EDITOR_SECRET) return false;
+  return token === env.EDITOR_SECRET;
+}

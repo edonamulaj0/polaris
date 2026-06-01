@@ -28,7 +28,13 @@ CREATE TABLE IF NOT EXISTS articles (
   stance_neutral INTEGER NOT NULL DEFAULT 34,
   published_at  INTEGER NOT NULL DEFAULT (unixepoch()),
   verified      INTEGER NOT NULL DEFAULT 0,
-  hidden        INTEGER NOT NULL DEFAULT 0
+  hidden        INTEGER NOT NULL DEFAULT 0,
+  source_type   TEXT NOT NULL DEFAULT 'ingest',  -- 'ingest' | 'user_submission'
+  submitted_by  TEXT REFERENCES users(id),        -- NULL for ingest pipeline
+  submitter_stance TEXT,                          -- 'For' | 'Against' | 'Neutral'
+  submission_description TEXT,
+  verified_by   TEXT,
+  verified_at   INTEGER
 );
 
 -- [DB-1] Votes table — one vote per user per article
@@ -43,4 +49,6 @@ CREATE TABLE IF NOT EXISTS votes (
 -- [DB-1] Indexes for common query patterns
 CREATE INDEX IF NOT EXISTS idx_articles_category ON articles(category, published_at DESC);
 CREATE INDEX IF NOT EXISTS idx_articles_published ON articles(published_at DESC);
+CREATE INDEX IF NOT EXISTS idx_articles_submitted_by ON articles(submitted_by);
+CREATE INDEX IF NOT EXISTS idx_articles_verified ON articles(verified, hidden, published_at DESC);
 CREATE INDEX IF NOT EXISTS idx_votes_article ON votes(article_id);

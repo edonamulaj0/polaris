@@ -24,7 +24,8 @@
     "seed-articles": "npm run fetch-guardian && npm run build-articles",
     "worker:dev": "npm run dev --prefix worker",
     "worker:deploy": "npm run deploy --prefix worker",
-    "worker:db:apply": "npm run db:apply --prefix worker"
+    "worker:db:apply": "npm run db:apply --prefix worker",
+    "worker:db:migrate": "npm run db:migrate --prefix worker"
   },
   "dependencies": {
     "@google/genai": "^1.52.0",

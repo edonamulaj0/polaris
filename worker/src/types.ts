@@ -7,6 +7,7 @@ export interface Env {
   GUARDIAN_API_KEY: string;
   GOOGLE_CLIENT_ID: string;
   GEMINI_API_KEY?: string; // [ART-2] optional fallback for synthesis
+  EDITOR_SECRET?: string; // [WRK-6] server-side editor auth
   ENVIRONMENT: string;
 }
 
@@ -31,7 +32,7 @@ export interface ArticleRow {
   counterpoint: string;
   implications: string;
   conclusion: string;
-  source_urls: string;      // JSON string
+  source_urls: string; // JSON string
   civility: number;
   stance_for: number;
   stance_against: number;
@@ -39,6 +40,12 @@ export interface ArticleRow {
   published_at: number;
   verified: number;
   hidden: number;
+  source_type: string;
+  submitted_by: string | null;
+  submitter_stance: string | null;
+  submission_description: string | null;
+  verified_by: string | null;
+  verified_at: number | null;
 }
 
 export interface ArticlePublic {
@@ -60,6 +67,13 @@ export interface ArticlePublic {
   stanceDistribution: { for: number; against: number; neutral: number };
   publishedAt: number;
   verified: boolean;
+  status: 'published' | 'pending';
+  sourceType: 'ingest' | 'user_submission';
+  submittedBy?: string | null;
+  submitterStance?: string | null;
+  submissionDescription?: string | null;
+  verifiedBy?: string | null;
+  verifiedAt?: number | null;
 }
 
 export interface VoteRow {

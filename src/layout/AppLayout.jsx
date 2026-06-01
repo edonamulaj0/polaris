@@ -19,8 +19,12 @@ export function AppLayout() {
   const [notifOpen, setNotifOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
-  const prependLocalDiscussion = useFeedStore((s) => s.prependLocalDiscussion)
+  const [submitError, setSubmitError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const submitTopic = useFeedStore((s) => s.submitTopic)
   const recordPostCreated = useUserStore((s) => s.recordPostCreated)
+  const googleSub = useUserStore((s) => s.googleSub)
+  const googleIdToken = useUserStore((s) => s.googleIdToken)
   const initNotifications = useNotificationStore((s) => s.init)
   const isDesktopNav = useMediaQuery('(min-width: 768px)')
 
@@ -36,6 +40,39 @@ export function AppLayout() {
   const anyOverlay = notifOpen || (menuOpen && !isDesktopNav)
 
   const isExplore = location.pathname === '/explore'
+
+  async function handleSubmitTopic(data) {
+    setSubmitError('')
+    if (!googleSub?.trim()) {
+      setSubmitError('Sign in with Google to submit a topic.')
+      return
+    }
+    if (!googleIdToken?.trim()) {
+      setSubmitError('Session expired — sign out and sign in again.')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const { id } = await submitTopic(data, googleIdToken)
+      const title = data.title?.trim() || 'New discussion'
+      recordPostCreated({ discussionId: id, title })
+      setModalOpen(false)
+      navigate(`/discussion/${id}`)
+    } catch (err) {
+      if (err?.code === 'unauthorized') {
+        setSubmitError('Sign in with Google to submit a topic.')
+      } else if (err?.code === 'invalid_category') {
+        setSubmitError('Choose a valid category.')
+      } else if (err?.code === 'invalid_title') {
+        setSubmitError('Title must be at least 5 characters.')
+      } else {
+        setSubmitError('Could not submit topic — try again.')
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
     <div className="flex min-h-svh flex-col bg-[var(--page)] pt-12">
@@ -81,14 +118,13 @@ export function AppLayout() {
       <NotificationsPanel open={notifOpen} onClose={() => setNotifOpen(false)} />
       <NewDiscussionModal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onSubmit={(data) => {
-          const newId = prependLocalDiscussion(data)
-          const title = data.title?.trim() || 'New discussion'
-          recordPostCreated({ discussionId: newId, title })
+        onClose={() => {
           setModalOpen(false)
-          navigate(`/discussion/${newId}`)
+          setSubmitError('')
         }}
+        onSubmit={handleSubmitTopic}
+        submitting={submitting}
+        error={submitError}
       />
     </div>
   )

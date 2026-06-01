@@ -187,7 +187,7 @@ export function AuthGate() {
                     if (!res.credential) return
                     try {
                       const payload = jwtDecode(res.credential)
-                      setGoogleProfileFromJwt(payload) // [FE-3] triggers /api/users upsert
+                      setGoogleProfileFromJwt(payload, res.credential) // [FE-3] triggers /api/users upsert
                     } catch {
                       // ignore malformed token
                     }

@@ -174,8 +174,9 @@ async function processItem(env: Env, item: RawNewsItem, category: ArticleCategor
     `INSERT INTO articles (
       id, title, category, image_url,
       lede, background, perspectives, evidence, counterpoint, implications, conclusion,
-      source_urls, civility, stance_for, stance_against, stance_neutral
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      source_urls, civility, stance_for, stance_against, stance_neutral,
+      verified, source_type
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'ingest')`,
   )
     .bind(
       id,

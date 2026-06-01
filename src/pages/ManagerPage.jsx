@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useFeedStore } from '../stores/feedStore'
 import { IoLockClosedOutline, IoCheckmarkCircleOutline, IoCloseCircleOutline, IoPencilOutline } from 'react-icons/io5'
 import { VerifiedBadge } from '../components/VerifiedBadge'
 
 const MANAGER_PIN_KEY = 'polaris_mgr_pin'
+const EDITOR_KEY_STORAGE = 'polaris_editor_key'
 
 /** [REFACTOR S-2] SHA-256 digest — never store plaintext PIN in localStorage */
 async function hashPin(pin) {
@@ -15,16 +16,32 @@ async function hashPin(pin) {
     .join('')
 }
 
+async function verifyEditorKey(key) {
+  const res = await fetch('/api/editor/articles?filter=pending', {
+    headers: { Authorization: `Bearer ${key}` },
+  })
+  if (res.status === 401) return { ok: false, error: 'Invalid editor API key.' }
+  if (!res.ok) return { ok: false, error: 'Could not reach editor API.' }
+  return { ok: true }
+}
+
 function PinGate({ onUnlock }) {
   const [input, setInput] = useState('')
+  const [editorKeyDraft, setEditorKeyDraft] = useState('')
   const [mode, setMode] = useState(() =>
-    localStorage.getItem(MANAGER_PIN_KEY) ? 'enter' : 'create'
+    localStorage.getItem(MANAGER_PIN_KEY) ? 'enter' : 'create',
+  )
+  const [needsEditorKey, setNeedsEditorKey] = useState(
+    () => mode === 'enter' && !localStorage.getItem(EDITOR_KEY_STORAGE),
   )
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   async function handleSubmit(e) {
     e.preventDefault()
+    setError('')
+
     if (mode === 'create') {
       if (input.length !== 4 || !/^\d+$/.test(input)) {
         setError('PIN must be exactly 4 digits.')
@@ -34,19 +51,68 @@ function PinGate({ onUnlock }) {
         setError('PINs do not match.')
         return
       }
+      const trimmedKey = editorKeyDraft.trim()
+      if (!trimmedKey) {
+        setError('Enter your editor API key once — it stays on this device.')
+        return
+      }
+      setSubmitting(true)
+      const verified = await verifyEditorKey(trimmedKey)
+      if (!verified.ok) {
+        setError(verified.error)
+        setSubmitting(false)
+        return
+      }
       const digest = await hashPin(input)
       localStorage.setItem(MANAGER_PIN_KEY, digest)
-      onUnlock('Editor')
-    } else {
-      const stored = localStorage.getItem(MANAGER_PIN_KEY)
-      const digest = await hashPin(input)
-      if (digest === stored) {
-        onUnlock('Editor')
-      } else {
-        setError('Incorrect PIN.')
-      }
+      localStorage.setItem(EDITOR_KEY_STORAGE, trimmedKey)
+      setSubmitting(false)
+      onUnlock('Editor', trimmedKey)
+      return
     }
+
+    const stored = localStorage.getItem(MANAGER_PIN_KEY)
+    const digest = await hashPin(input)
+    if (digest !== stored) {
+      setError('Incorrect PIN.')
+      return
+    }
+
+    let editorKey = localStorage.getItem(EDITOR_KEY_STORAGE)
+    if (!editorKey || needsEditorKey) {
+      const trimmedKey = editorKeyDraft.trim()
+      if (!trimmedKey) {
+        setNeedsEditorKey(true)
+        setError('Enter your editor API key once — then only your PIN is needed.')
+        return
+      }
+      setSubmitting(true)
+      const verified = await verifyEditorKey(trimmedKey)
+      if (!verified.ok) {
+        setError(verified.error)
+        setSubmitting(false)
+        return
+      }
+      localStorage.setItem(EDITOR_KEY_STORAGE, trimmedKey)
+      editorKey = trimmedKey
+      setSubmitting(false)
+    }
+
+    onUnlock('Editor', editorKey)
   }
+
+  function resetSetup() {
+    localStorage.removeItem(MANAGER_PIN_KEY)
+    localStorage.removeItem(EDITOR_KEY_STORAGE)
+    setMode('create')
+    setNeedsEditorKey(false)
+    setInput('')
+    setConfirm('')
+    setEditorKeyDraft('')
+    setError('')
+  }
+
+  const showEditorKeyField = mode === 'create' || needsEditorKey
 
   return (
     <div className="mx-auto mt-20 max-w-xs">
@@ -58,7 +124,9 @@ function PinGate({ onUnlock }) {
       </div>
       <hr className="signal mb-6" />
       <p className="font-mono text-[10px] uppercase tracking-widest text-[var(--muted)] mb-4">
-        {mode === 'create' ? 'Create a 4-digit access PIN' : 'Enter your PIN to continue'}
+        {mode === 'create'
+          ? 'Create a PIN and link this device to the editor API'
+          : 'Enter your PIN to continue'}
       </p>
       <form onSubmit={handleSubmit} className="space-y-3">
         <input
@@ -66,7 +134,7 @@ function PinGate({ onUnlock }) {
           inputMode="numeric"
           maxLength={4}
           value={input}
-          onChange={(e) => setInput(e.target.value.replace(/\D/g, '').slice(0,4))}
+          onChange={(e) => setInput(e.target.value.replace(/\D/g, '').slice(0, 4))}
           className="w-full rounded-none border border-[var(--border)] bg-[var(--surface-hi)] px-4 py-3 font-mono text-xl tracking-[.5em] text-center text-[var(--text-hi)] outline-none focus:border-[var(--signal)]"
           placeholder="• • • •"
           autoFocus
@@ -77,29 +145,44 @@ function PinGate({ onUnlock }) {
             inputMode="numeric"
             maxLength={4}
             value={confirm}
-            onChange={(e) => setConfirm(e.target.value.replace(/\D/g, '').slice(0,4))}
+            onChange={(e) => setConfirm(e.target.value.replace(/\D/g, '').slice(0, 4))}
             className="w-full rounded-none border border-[var(--border)] bg-[var(--surface-hi)] px-4 py-3 font-mono text-xl tracking-[.5em] text-center text-[var(--text-hi)] outline-none focus:border-[var(--signal)]"
             placeholder="Confirm PIN"
           />
+        )}
+        {showEditorKeyField && (
+          <div>
+            <label className="mb-1.5 block font-mono text-[9px] uppercase tracking-widest text-[var(--muted)]">
+              Editor API key {mode === 'enter' ? '(one time)' : ''}
+            </label>
+            <input
+              type="password"
+              value={editorKeyDraft}
+              onChange={(e) => setEditorKeyDraft(e.target.value)}
+              className="w-full rounded-none border border-[var(--border)] bg-[var(--surface-hi)] px-4 py-3 font-mono text-sm text-[var(--text-hi)] outline-none focus:border-[var(--signal)]"
+              placeholder="From wrangler secret put EDITOR_SECRET"
+            />
+          </div>
         )}
         {error && (
           <p className="font-mono text-[10px] text-[var(--signal)] uppercase tracking-wide">{error}</p>
         )}
         <motion.button
           type="submit"
-          className="signal-glow-hover w-full bg-[var(--signal)] py-3 text-[11px] font-bold uppercase tracking-[.12em] text-[var(--signal-on)]"
+          disabled={submitting}
+          className="signal-glow-hover w-full bg-[var(--signal)] py-3 text-[11px] font-bold uppercase tracking-[.12em] text-[var(--signal-on)] disabled:opacity-50"
           whileHover={{ scale: 1.01 }}
           whileTap={{ scale: 0.98 }}
         >
-          {mode === 'create' ? 'Set PIN & Enter' : 'Unlock'}
+          {submitting ? 'Verifying…' : mode === 'create' ? 'Set up & Enter' : 'Unlock'}
         </motion.button>
         {mode === 'enter' && (
           <button
             type="button"
-            onClick={() => { localStorage.removeItem(MANAGER_PIN_KEY); setMode('create'); setInput(''); setConfirm(''); setError('') }}
+            onClick={resetSetup}
             className="w-full text-[9px] font-mono uppercase tracking-wide text-[var(--muted)] hover:text-[var(--signal)]"
           >
-            Reset PIN
+            Reset PIN &amp; device setup
           </button>
         )}
       </form>
@@ -160,20 +243,38 @@ function BulletEditor({ bullets, onChange, label, color }) {
   )
 }
 
-function ArticleReviewCard({ post, onApprove, onReject, onUpdateBullets }) {
-  const [forBullets, setForBullets] = useState(post.bothSides?.for || [])
-  const [againstBullets, setAgainstBullets] = useState(post.bothSides?.against || [])
+function bulletsFromArticle(post) {
+  if (post.bothSides?.for?.length || post.bothSides?.against?.length) {
+    return {
+      for: post.bothSides.for || [],
+      against: post.bothSides.against || [],
+    }
+  }
+  const desc = post.submissionDescription || post.article?.lede || ''
+  return {
+    for: desc ? [desc] : [],
+    against: ['Opposing view to be expanded upon approval.'],
+  }
+}
+
+function ArticleReviewCard({ post, onApprove, onReject, onUpdateBullets, busy }) {
+  const initial = bulletsFromArticle(post)
+  const [forBullets, setForBullets] = useState(initial.for)
+  const [againstBullets, setAgainstBullets] = useState(initial.against)
 
   return (
     <article className="border border-[var(--border)] border-t-2 border-t-[var(--signal)] bg-[var(--surface)] p-5 space-y-4">
-      {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2 mb-2">
             <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--signal)]">
               {post.category}
             </span>
-            <span className="font-mono text-[9px] text-[var(--muted)]">{post.subreddit}</span>
+            {post.sourceType === 'user_submission' && (
+              <span className="font-mono text-[9px] uppercase tracking-widest text-[var(--muted)]">
+                User submission
+              </span>
+            )}
             {post.verified && <VerifiedBadge />}
             {!post.verified && (
               <span className="font-mono text-[9px] uppercase tracking-widest bg-[var(--surface-hi)] text-[var(--muted)] px-2 py-0.5">
@@ -182,10 +283,14 @@ function ArticleReviewCard({ post, onApprove, onReject, onUpdateBullets }) {
             )}
           </div>
           <h2 className="font-heading text-lg leading-tight text-[var(--text-hi)]">{post.title}</h2>
+          {post.submitterStance && (
+            <p className="mt-1 font-mono text-[9px] uppercase tracking-wide text-[var(--muted)]">
+              Submitter stance: {post.submitterStance}
+            </p>
+          )}
         </div>
       </div>
 
-      {/* Both sides editor */}
       <div className="grid gap-4 sm:grid-cols-2">
         <BulletEditor
           bullets={forBullets}
@@ -201,19 +306,12 @@ function ArticleReviewCard({ post, onApprove, onReject, onUpdateBullets }) {
         />
       </div>
 
-      {/* Common ground */}
-      {post.bothSides?.common_ground && (
-        <p className="border-l-2 border-[var(--signal)] pl-3 font-mono text-[10px] italic text-[var(--muted)]">
-          {post.bothSides.common_ground}
-        </p>
-      )}
-
-      {/* Actions */}
       <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-[var(--border)]">
         <motion.button
           type="button"
+          disabled={busy}
           onClick={() => onApprove(post.id, forBullets, againstBullets)}
-          className="flex items-center gap-1.5 bg-[var(--signal)] px-4 py-2 text-[10px] font-bold uppercase tracking-[.1em] text-[var(--signal-on)] signal-glow-hover"
+          className="flex items-center gap-1.5 bg-[var(--signal)] px-4 py-2 text-[10px] font-bold uppercase tracking-[.1em] text-[var(--signal-on)] signal-glow-hover disabled:opacity-50"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
         >
@@ -222,76 +320,126 @@ function ArticleReviewCard({ post, onApprove, onReject, onUpdateBullets }) {
         </motion.button>
         <motion.button
           type="button"
+          disabled={busy}
           onClick={() => onReject(post.id)}
-          className="flex items-center gap-1.5 border border-[var(--border)] px-4 py-2 text-[10px] font-bold uppercase tracking-[.1em] text-[var(--muted)] hover:border-[var(--signal)]/50 hover:text-[var(--signal)]"
+          className="flex items-center gap-1.5 border border-[var(--border)] px-4 py-2 text-[10px] font-bold uppercase tracking-[.1em] text-[var(--muted)] hover:border-[var(--signal)]/50 hover:text-[var(--signal)] disabled:opacity-50"
           whileHover={{ scale: 1.01 }}
           whileTap={{ scale: 0.98 }}
         >
           <IoCloseCircleOutline className="h-4 w-4" />
           Reject
         </motion.button>
-        <a
-          href={post.url}
-          target="_blank"
-          rel="noreferrer"
+        <Link
+          to={`/discussion/${post.id}`}
           className="ml-auto font-mono text-[9px] uppercase tracking-wide text-[var(--muted)] hover:text-[var(--text)] underline"
         >
-          View source ↗
-        </a>
+          Preview ↗
+        </Link>
       </div>
     </article>
   )
 }
 
 export function ManagerPage() {
-  const [unlocked, setUnlocked] = useState(false)
+  const [pinUnlocked, setPinUnlocked] = useState(false)
+  const [editorKey, setEditorKey] = useState('')
   const [editorName, setEditorName] = useState('')
-  const [filter, setFilter] = useState('pending') // 'pending' | 'verified' | 'all'
+  const [filter, setFilter] = useState('pending')
+  const [articles, setArticles] = useState([])
+  const [pendingCount, setPendingCount] = useState(0)
+  const [loading, setLoading] = useState(false)
+  const [busyId, setBusyId] = useState(null)
+  const [error, setError] = useState('')
 
-  const posts = useFeedStore((s) => s.posts)
-  const updatePost = useFeedStore((s) => s.updatePost)
+  const loadQueue = useCallback(async () => {
+    if (!editorKey) return
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/editor/articles?filter=${filter}`, {
+        headers: { Authorization: `Bearer ${editorKey}` },
+      })
+      if (res.status === 401) {
+        localStorage.removeItem(EDITOR_KEY_STORAGE)
+        setEditorKey('')
+        setPinUnlocked(false)
+        setError('Editor API key invalid — use Reset on the PIN screen to re-link this device.')
+        return
+      }
+      if (!res.ok) throw new Error('fetch_failed')
+      const data = await res.json()
+      setArticles(data.articles || [])
+      setPendingCount(data.pendingCount ?? 0)
+    } catch {
+      setError('Could not load review queue.')
+    } finally {
+      setLoading(false)
+    }
+  }, [editorKey, filter])
 
-  const filtered = useMemo(() => {
-    if (filter === 'pending') return posts.filter(p => !p.verified && !p.hidden)
-    if (filter === 'verified') return posts.filter(p => p.verified && !p.hidden)
-    return posts.filter(p => !p.hidden)
-  }, [posts, filter])
+  useEffect(() => {
+    if (editorKey) loadQueue()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload when filter or key changes
+  }, [editorKey, filter])
 
-  function handleUnlock(name) {
-    setEditorName(name)
-    setUnlocked(true)
+  const filtered = useMemo(() => articles, [articles])
+
+  async function patchArticle(id, body) {
+    setBusyId(id)
+    try {
+      const res = await fetch(`/api/editor/articles/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${editorKey}`,
+        },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) throw new Error('patch_failed')
+      await loadQueue()
+    } catch {
+      setError('Action failed — try again.')
+    } finally {
+      setBusyId(null)
+    }
   }
 
   function handleApprove(id, forBullets, againstBullets) {
-    updatePost(id, {
+    patchArticle(id, {
       verified: true,
       verifiedBy: editorName,
-      verifiedAt: Date.now(),
-      bothSides: {
-        ...posts.find(p => p.id === id)?.bothSides,
-        for: forBullets,
-        against: againstBullets,
-      },
+      bothSides: { for: forBullets, against: againstBullets },
     })
   }
 
   function handleReject(id) {
-    updatePost(id, { hidden: true })
+    patchArticle(id, { hidden: true })
   }
 
   function handleUpdateBullets(id, side, bullets) {
-    const post = posts.find(p => p.id === id)
-    if (!post) return
-    updatePost(id, {
-      bothSides: { ...post.bothSides, [side]: bullets }
-    })
+    setArticles((prev) =>
+      prev.map((p) => {
+        if (p.id !== id) return p
+        const bothSides = { ...(p.bothSides || { for: [], against: [] }), [side]: bullets }
+        return { ...p, bothSides }
+      }),
+    )
   }
 
-  if (!unlocked) return <PinGate onUnlock={handleUnlock} />
+  if (!pinUnlocked || !editorKey) {
+    return (
+      <PinGate
+        onUnlock={(name, key) => {
+          setEditorName(name)
+          setEditorKey(key)
+          setPinUnlocked(true)
+        }}
+      />
+    )
+  }
 
   return (
     <div>
-      {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-1">
           <IoLockClosedOutline className="h-4 w-4 text-[var(--signal)]" />
@@ -304,11 +452,13 @@ export function ManagerPage() {
         </h1>
         <hr className="signal mt-3" />
         <p className="mt-3 font-mono text-[10px] text-[var(--muted)] uppercase tracking-wide">
-          {posts.filter(p => !p.verified && !p.hidden).length} articles awaiting review
+          {pendingCount} articles awaiting review
         </p>
+        {error && (
+          <p className="mt-2 font-mono text-[10px] text-[var(--signal)] uppercase tracking-wide">{error}</p>
+        )}
       </div>
 
-      {/* Filter tabs */}
       <div className="flex gap-1 border-b border-[var(--border)] mb-6">
         {['pending','verified','all'].map(f => (
           <button
@@ -330,10 +480,15 @@ export function ManagerPage() {
         ))}
       </div>
 
-      {/* Article list */}
+      {loading && (
+        <p className="py-8 text-center font-mono text-[10px] uppercase tracking-widest text-[var(--muted)]">
+          Loading queue…
+        </p>
+      )}
+
       <div className="space-y-4">
         <AnimatePresence>
-          {filtered.map(post => (
+          {!loading && filtered.map(post => (
             <motion.div
               key={post.id}
               initial={{ opacity: 0, y: 12 }}
@@ -342,16 +497,16 @@ export function ManagerPage() {
               transition={{ duration: 0.2 }}
             >
               <ArticleReviewCard
-                key={post.verifiedAt ?? post.id}
                 post={post}
                 onApprove={handleApprove}
                 onReject={handleReject}
                 onUpdateBullets={handleUpdateBullets}
+                busy={busyId === post.id}
               />
             </motion.div>
           ))}
         </AnimatePresence>
-        {!filtered.length && (
+        {!loading && !filtered.length && (
           <p className="py-16 text-center font-mono text-[10px] uppercase tracking-widest text-[var(--muted)]">
             No articles in this queue.
           </p>

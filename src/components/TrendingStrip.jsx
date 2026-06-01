@@ -8,7 +8,7 @@ export function TrendingStrip() {
   const trending = useMemo(
     () =>
       [...posts]
-        .filter((p) => !p.hidden)
+        .filter((p) => !p.hidden && p.verified !== false)
         .sort((a, b) => (b.num_comments || 0) - (a.num_comments || 0))
         .slice(0, 10),
     [posts],

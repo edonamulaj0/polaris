@@ -19,7 +19,7 @@ const modal = {
   exit: { opacity: 0, scale: 0.95, transition: { duration: 0.2 } },
 }
 
-export function NewDiscussionModal({ open, onClose, onSubmit }) {
+export function NewDiscussionModal({ open, onClose, onSubmit, submitting = false, error = '' }) {
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState(CATEGORIES[0]) // [CAT-1]
   const [stance, setStance] = useState('Neutral')
@@ -27,7 +27,7 @@ export function NewDiscussionModal({ open, onClose, onSubmit }) {
 
   function handleSubmit(e) {
     e.preventDefault()
-    if (!title.trim()) return
+    if (!title.trim() || submitting) return
     onSubmit({
       title: title.trim(),
       category,
@@ -38,7 +38,6 @@ export function NewDiscussionModal({ open, onClose, onSubmit }) {
     setCategory(CATEGORIES[0]) // [CAT-1]
     setStance('Neutral')
     setDescription('')
-    onClose()
   }
 
   return (
@@ -159,15 +158,21 @@ export function NewDiscussionModal({ open, onClose, onSubmit }) {
                 />
               </div>
               <p className="rounded-none border border-[var(--border)] bg-[var(--surface-hi)] px-3 py-2.5 text-sm italic text-[var(--muted)]">
-                Keep it factual. Disagree with ideas, not people.
+                Topics are reviewed by editors before appearing in the public feed.
               </p>
+              {error && (
+                <p className="font-mono text-[10px] uppercase tracking-wide text-[var(--signal)]" role="alert">
+                  {error}
+                </p>
+              )}
               <motion.button
                 type="submit"
-                className="signal-glow-hover w-full rounded-none bg-[var(--signal)] py-3 text-sm font-bold uppercase tracking-wide text-[var(--signal-on)]"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+                disabled={submitting}
+                className="signal-glow-hover w-full rounded-none bg-[var(--signal)] py-3 text-sm font-bold uppercase tracking-wide text-[var(--signal-on)] disabled:cursor-not-allowed disabled:opacity-50"
+                whileHover={{ scale: submitting ? 1 : 1.02 }}
+                whileTap={{ scale: submitting ? 1 : 0.98 }}
               >
-                Publish topic
+                {submitting ? 'Submitting…' : 'Submit for review'}
               </motion.button>
             </form>
           </motion.div>

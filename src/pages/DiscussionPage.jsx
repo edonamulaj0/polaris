@@ -1,5 +1,5 @@
 import { motion, useScroll, useTransform } from 'framer-motion'
-import { useLayoutEffect, useMemo } from 'react'
+import { useLayoutEffect, useMemo, useState, useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { CivilityBadge } from '../components/CivilityBadge'
 import { ErrorBoundary } from '../components/ErrorBoundary'
@@ -11,6 +11,7 @@ import { useMediaQuery } from '../hooks/useMediaQuery'
 import { formatSource } from '../lib/displayUtils'
 import { useDiscussionStore } from '../stores/discussionStore'
 import { useFeedStore } from '../stores/feedStore'
+import { useUserStore } from '../stores/userStore'
 
 function formatScore(n) {
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
@@ -97,12 +98,19 @@ function DiscussionPageInner({ id }) {
   const feedLoading = useFeedStore((s) => s.loading)
   const feedPosts = useFeedStore((s) => s.posts)
   const feedLastRefresh = useFeedStore((s) => s.lastRefresh)
+  const previewById = useFeedStore((s) => s.previewById)
+  const fetchArticlePreview = useFeedStore((s) => s.fetchArticlePreview)
+  const googleSub = useUserStore((s) => s.googleSub)
+  const googleIdToken = useUserStore((s) => s.googleIdToken)
   const isDesktop = useMediaQuery('(min-width: 1024px)')
+  const [previewLoading, setPreviewLoading] = useState(false)
 
   const decodedId = id ? decodeURIComponent(id) : null
   const feedPost =
     feedPosts.find((p) => p.id === id) ||
     feedPosts.find((p) => p.id === decodedId) ||
+    previewById[id] ||
+    previewById[decodedId] ||
     MOCK_DISCUSSIONS.find((p) => p.id === id || p.id === decodedId) ||
     null
   const lookupId = feedPost?.id ?? id
@@ -115,7 +123,23 @@ function DiscussionPageInner({ id }) {
     if (id) hydrateFromFeed(id)
   }, [id, hydrateFromFeed, feedPosts, feedLoading, feedLastRefresh])
 
+  useEffect(() => {
+    if (feedPost || !id || !googleSub || !googleIdToken) return
+    let cancelled = false
+    /* eslint-disable react-hooks/set-state-in-effect -- preview fetch lifecycle */
+    setPreviewLoading(true)
+    /* eslint-enable react-hooks/set-state-in-effect */
+    fetchArticlePreview(id, googleIdToken).finally(() => {
+      if (!cancelled) setPreviewLoading(false)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [id, feedPost, googleSub, googleIdToken, fetchArticlePreview])
+
   const post = detail?.post ?? feedPost
+  const isPending = post && post.verified === false
+  const isOwnerPreview = isPending && post.submittedBy === googleSub
 
   const sourcesList = useMemo(() => {
     if (!post) return []
@@ -134,9 +158,11 @@ function DiscussionPageInner({ id }) {
   const sourceLabel = formatSource(post?.subreddit) || post?.source || '' // [UI-1]
 
   if (!post) {
-    const isHydrating = Boolean(id && !post && (feedLoading || feedPosts.length > 0))
+    const isHydrating = Boolean(
+      id && !post && (feedLoading || previewLoading || feedPosts.length > 0),
+    )
 
-    if (isHydrating || feedLoading) {
+    if (isHydrating || feedLoading || previewLoading) {
       return (
         <div className="space-y-4">
           <div className="h-4 w-32 skeleton-shimmer rounded-none" />
@@ -164,6 +190,21 @@ function DiscussionPageInner({ id }) {
       >
         ← Back to feed
       </Link>
+
+      {isOwnerPreview && (
+        <div
+          className="mb-8 border border-[var(--signal)]/40 bg-[var(--surface)] px-5 py-4"
+          role="status"
+        >
+          <p className="font-mono text-[9px] uppercase tracking-widest text-[var(--signal)] mb-2">
+            Pending editor confirmation
+          </p>
+          <p className="text-sm leading-relaxed text-[var(--muted)]">
+            Your topic has been submitted and is pending editor confirmation. It will appear in the
+            feed once verified.
+          </p>
+        </div>
+      )}
 
       <div className="relative -mx-4 mb-10 overflow-hidden sm:-mx-6 lg:mx-0">
         <div className="relative aspect-[16/9] min-h-[220px] w-full sm:min-h-[300px] lg:min-h-[380px]">
@@ -194,6 +235,11 @@ function DiscussionPageInner({ id }) {
             </span>
           )}
           {post.verified && <VerifiedBadge />}
+          {!post.verified && isOwnerPreview && (
+            <span className="font-mono text-[9px] uppercase tracking-widest bg-[var(--surface-hi)] text-[var(--muted)] px-2 py-0.5">
+              Pending Review
+            </span>
+          )}
           <CivilityBadge value={post.civility ?? 70} />
           <span className="ml-auto font-mono text-[10px] text-[var(--muted)]">
             ↑ {formatScore(post.score)} · 💬 {post.num_comments ?? 0}
@@ -204,7 +250,7 @@ function DiscussionPageInner({ id }) {
         </div>
       </header>
 
-      {isDesktop && (
+      {!isPending && isDesktop && (
         <div className="my-10 border border-[var(--border)] bg-[var(--surface)] p-6 sm:p-8">
           <VoteWidget
             postId={post.id}
@@ -258,7 +304,7 @@ function DiscussionPageInner({ id }) {
         </div>
       )}
 
-      {!isDesktop && (
+      {!isPending && !isDesktop && (
         <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] left-0 right-0 z-[50] border-t border-[var(--border)] bg-[var(--page)]/95 px-4 py-3 backdrop-blur-md lg:hidden">
           <VoteWidget
             postId={post.id}
