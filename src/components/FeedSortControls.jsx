@@ -6,12 +6,12 @@ const OPTIONS = [
 
 export function FeedSortControls({ value, onChange, className = '', comfortable = false }) {
   const btnClass = comfortable
-    ? 'rounded-none px-5 py-2.5 text-xs font-semibold uppercase tracking-wide ring-1 transition-colors'
-    : 'rounded-none px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wide ring-1 transition-colors'
+    ? 'rounded-full px-5 py-2.5 text-xs font-semibold transition-colors shadow-[var(--shadow-pill)]'
+    : 'rounded-full px-4 py-2 text-xs font-semibold transition-colors shadow-[var(--shadow-pill)]'
 
   return (
     <div
-      className={`flex flex-wrap gap-3 ${className}`}
+      className={`flex flex-wrap gap-2 ${className}`}
       role="group"
       aria-label="Sort discussions"
     >
@@ -22,8 +22,8 @@ export function FeedSortControls({ value, onChange, className = '', comfortable 
           onClick={() => onChange(o.value)}
           className={`${btnClass} ${
             value === o.value
-              ? 'bg-[var(--surface-hi)] text-[var(--text)] ring-[var(--signal)]'
-              : 'text-[var(--muted)] ring-[var(--border)] hover:text-[var(--text)] hover:bg-[var(--surface-hi)]'
+              ? 'bg-[var(--nav-pill-active)] text-[var(--text-hi)]'
+              : 'bg-[var(--nav-pill-bg)] text-[var(--muted)] hover:bg-[var(--nav-pill-hover)] hover:text-[var(--text)]'
           }`}
         >
           {o.label}

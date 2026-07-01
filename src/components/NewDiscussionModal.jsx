@@ -61,7 +61,7 @@ export function NewDiscussionModal({ open, onClose, onSubmit, submitting = false
             onClick={onClose}
           />
           <motion.div
-            className="relative z-10 w-full max-w-lg max-h-[90svh] overflow-y-auto rounded-none border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-card)]"
+            className="relative z-10 w-full max-w-lg max-h-[90svh] overflow-y-auto rounded-3xl bg-[var(--surface)] p-6 shadow-[var(--shadow-card)]"
             variants={modal}
             initial="hidden"
             animate="visible"
@@ -80,7 +80,7 @@ export function NewDiscussionModal({ open, onClose, onSubmit, submitting = false
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-none p-1 text-[var(--muted)] transition-colors hover:bg-[var(--surface-hi)] hover:text-[var(--text)]"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--muted)] transition-colors hover:bg-[var(--surface-hi)] hover:text-[var(--text)]"
                 aria-label="Close"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -101,7 +101,7 @@ export function NewDiscussionModal({ open, onClose, onSubmit, submitting = false
                 <input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full rounded-none border border-[var(--border)] bg-[var(--surface-hi)] px-3 py-2.5 text-[var(--text)] outline-none ring-0 transition-colors focus:border-[var(--signal)]/50"
+                  className="w-full rounded-2xl bg-[var(--surface-hi)] px-4 py-2.5 text-[var(--text)] shadow-[var(--shadow-pill)] outline-none transition-shadow focus:shadow-[0_0_0_3px_rgba(244,208,104,.25)]"
                   placeholder="Frame the disagreement clearly"
                   required
                 />
@@ -113,7 +113,7 @@ export function NewDiscussionModal({ open, onClose, onSubmit, submitting = false
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="w-full rounded-none border border-[var(--border)] bg-[var(--surface-hi)] px-3 py-2.5 text-[var(--text)] outline-none focus:border-[var(--signal)]/50"
+                  className="w-full rounded-2xl bg-[var(--surface-hi)] px-4 py-2.5 text-[var(--text)] shadow-[var(--shadow-pill)] outline-none focus:shadow-[0_0_0_3px_rgba(244,208,104,.25)]"
                 >
                   {CATEGORIES.map((c) => (
                     <option key={c} value={c}>
@@ -132,10 +132,10 @@ export function NewDiscussionModal({ open, onClose, onSubmit, submitting = false
                       key={s}
                       type="button"
                       onClick={() => setStance(s)}
-                      className={`rounded-none px-4 py-2 text-sm font-semibold ring-1 transition-colors ${
+                      className={`rounded-full px-4 py-2 text-sm font-semibold shadow-[var(--shadow-pill)] transition-colors ${
                         stance === s
-                          ? 'bg-[var(--signal)] text-[var(--signal-on)] ring-[var(--signal)]'
-                          : 'bg-[var(--surface-hi)] text-[var(--muted)] ring-[var(--border)] hover:text-[var(--text)]'
+                          ? 'bg-[var(--gold)] text-[var(--signal-on)]'
+                          : 'bg-[var(--surface-hi)] text-[var(--muted)] hover:text-[var(--text)]'
                       }`}
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.98 }}
@@ -153,11 +153,11 @@ export function NewDiscussionModal({ open, onClose, onSubmit, submitting = false
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={4}
-                  className="w-full resize-y rounded-none border border-[var(--border)] bg-[var(--surface-hi)] px-3 py-2.5 text-[var(--text)] outline-none focus:border-[var(--signal)]/50"
+                  className="w-full resize-y rounded-2xl bg-[var(--surface-hi)] px-4 py-2.5 text-[var(--text)] shadow-[var(--shadow-pill)] outline-none focus:shadow-[0_0_0_3px_rgba(244,208,104,.25)]"
                   placeholder="Context, definitions, and what you hope to learn."
                 />
               </div>
-              <p className="rounded-none border border-[var(--border)] bg-[var(--surface-hi)] px-3 py-2.5 text-sm italic text-[var(--muted)]">
+              <p className="rounded-2xl bg-[var(--surface-hi)] px-4 py-3 text-sm italic text-[var(--muted)] shadow-[var(--shadow-pill)]">
                 Topics are reviewed by editors before appearing in the public feed.
               </p>
               {error && (
@@ -168,7 +168,7 @@ export function NewDiscussionModal({ open, onClose, onSubmit, submitting = false
               <motion.button
                 type="submit"
                 disabled={submitting}
-                className="signal-glow-hover w-full rounded-none bg-[var(--signal)] py-3 text-sm font-bold uppercase tracking-wide text-[var(--signal-on)] disabled:cursor-not-allowed disabled:opacity-50"
+                className="signal-glow-hover w-full rounded-full bg-[var(--gold)] py-3 text-sm font-semibold text-[var(--signal-on)] shadow-[0_4px_16px_-4px_rgba(244,208,104,.45)] disabled:cursor-not-allowed disabled:opacity-50"
                 whileHover={{ scale: submitting ? 1 : 1.02 }}
                 whileTap={{ scale: submitting ? 1 : 0.98 }}
               >

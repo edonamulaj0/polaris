@@ -10,8 +10,8 @@ database_id = "6cd23fd0-992f-4af3-ab5e-4e5a622df0c9"
 
 [[kv_namespaces]]
 binding = "RATE_LIMIT_KV"
-id = "00000000000000000000000000000001"
-preview_id = "00000000000000000000000000000002"
+id = "d973d66b243d4f20a56c9b9e84488485"
+preview_id = "e8656e3ee5f04154a3ed2058cecbf7f1"
 
 [ai]
 binding = "AI"

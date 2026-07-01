@@ -18,7 +18,7 @@ export function TrendingStrip() {
 
   return (
     <nav aria-label="Trending discussions" className="w-full">
-      <p className="mb-3 px-4 font-mono text-[10px] uppercase tracking-[.15em] text-[var(--muted)]">
+      <p className="mb-3 px-4 font-body text-[10px] font-semibold uppercase tracking-[.15em] text-[var(--muted)]">
         Trending
       </p>
       <div className="scrollbar-hide flex gap-3 overflow-x-auto px-4 pb-3">
@@ -26,13 +26,13 @@ export function TrendingStrip() {
           <Link
             key={post.id}
             to={`/discussion/${post.id}`}
-            className="flex max-w-[200px] shrink-0 flex-col gap-1 rounded-none border border-[var(--border)] bg-[var(--surface)] px-4 py-3 transition-colors hover:border-[var(--signal)]/40"
+            className="flex max-w-[200px] shrink-0 flex-col gap-1 rounded-2xl bg-[var(--surface)] px-4 py-3 shadow-[var(--shadow-card)] transition-shadow hover:shadow-[var(--shadow-hover)]"
           >
-            <span className="font-mono text-[10px] font-bold text-[var(--signal)]">#{i + 1}</span>
+            <span className="font-body text-[10px] font-bold text-[var(--gold)]">#{i + 1}</span>
             <span className="line-clamp-2 text-sm font-medium leading-snug text-[var(--text)]">
               {post.title}
             </span>
-            <span className="font-mono text-[9px] uppercase text-[var(--muted)]">
+            <span className="font-body text-[9px] uppercase text-[var(--muted)]">
               {post.category || 'Technology'}
             </span>
           </Link>

@@ -1,6 +1,23 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { CATEGORIES } from '../data/categories'
+import {
+  applyAccountActivity,
+  emptyAccountActivity,
+  migrateLegacyAccountState,
+  readAccountActivity,
+  snapshotAccountActivity,
+} from '../lib/accountActivity'
+import {
+  applyActivityDataToStore,
+  fetchActivityData,
+  localSyncPayloadFromAccount,
+  postActivity,
+  postVote,
+  saveDebate,
+  syncActivityToServer,
+  unsaveDebate,
+} from '../services/userActivityApi'
 
 const emptyStats = () => ({
   postsCreated: 0,
@@ -53,6 +70,8 @@ export const useUserStore = create(
       birthDate: '',
       /** [FE-2] true once birthday is saved to Worker (write-once) */
       birthLocked: false,
+      /** Activity keyed by Google `sub` — survives account switch on same device */
+      accounts: {},
       commentHistory: [],
       stanceHistory: [],
       joinedDiscussionIds: [],
@@ -60,6 +79,63 @@ export const useUserStore = create(
       /** @type {{ id: string; type: string; title?: string; at: number; detail?: string }[]} */
       activityFeed: [],
       likedDiscussionIds: [],
+      /** True once server activity has been loaded for the current session */
+      activitySynced: false,
+
+      /** Persist current activity slice into accounts[googleSub] (migration cache only) */
+      _commitAccount: () => {
+        const sub = get().googleSub
+        if (!sub?.trim()) return
+        set({ accounts: snapshotAccountActivity(get(), sub) })
+      },
+
+      /**
+       * Load hearts, stances, and activity feed from the server (Google account).
+       * Merges any device-local data once, then server is source of truth.
+       */
+      syncAccountFromServer: async () => {
+        const token = get().googleIdToken
+        const sub = get().googleSub
+        if (!token?.trim() || !sub?.trim()) return
+
+        try {
+          const account = readAccountActivity(get(), sub)
+          const payload = localSyncPayloadFromAccount(account)
+
+          let data
+          if (payload) {
+            data = await syncActivityToServer(token, payload)
+            const accounts = { ...(get().accounts || {}) }
+            delete accounts[sub]
+            set({ accounts })
+          } else {
+            data = await fetchActivityData(token)
+          }
+
+          set({ ...applyActivityDataToStore(data), activitySynced: true })
+        } catch {
+          get()._loadAccount(sub)
+        }
+      },
+
+      _persistActivity: async (entry) => {
+        const token = get().googleIdToken
+        if (!token?.trim() || !entry?.type) return
+        try {
+          await postActivity(token, entry)
+        } catch {
+          /* local state already updated */
+        }
+      },
+
+      /** Load activity for the signed-in Google account (offline fallback) */
+      _loadAccount: (sub) => {
+        if (!sub?.trim()) return
+        set({
+          accounts: snapshotAccountActivity(get(), get().googleSub),
+          ...applyAccountActivity(readAccountActivity(get(), sub)),
+        })
+      },
 
       /**
        * Persist Google profile and upsert user in D1 (fire-and-forget).
@@ -71,18 +147,37 @@ export const useUserStore = create(
         const email = typeof jwtPayload.email === 'string' ? jwtPayload.email.trim() : ''
         if (!sub || !email) return
         const name = displayNameFromJwt(jwtPayload)
+        const prevSub = get().googleSub
+
+        if (prevSub && prevSub !== sub) {
+          set({ accounts: snapshotAccountActivity(get(), prevSub) })
+        }
+
+        const accounts = snapshotAccountActivity(get(), prevSub)
+        const accountData = readAccountActivity({ ...get(), accounts }, sub)
+
         set({
           googleSub: sub,
           googleIdToken: typeof idToken === 'string' ? idToken : '',
           email: email.slice(0, 254),
           name,
+          accounts,
+          activitySynced: false,
+          ...applyAccountActivity(accountData),
         })
 
-        fetch('/api/users', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sub, email, name }),
-        }).catch(() => {}) // [FE-2] fire-and-forget upsert
+        void (async () => {
+          try {
+            await fetch('/api/users', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sub, email, name }),
+            })
+          } catch {
+            /* upsert best-effort */
+          }
+          await get().syncAccountFromServer()
+        })()
       },
 
       setAge: (raw) => {
@@ -153,53 +248,62 @@ export const useUserStore = create(
       },
 
       /** Clears Google session only; keeps birthday, age cache, and activity on this device */
-      signOut: () =>
+      signOut: () => {
+        get()._commitAccount()
         set({
           googleSub: '',
           googleIdToken: '',
           email: '',
           name: '',
-        }),
+          activitySynced: false,
+          ...applyAccountActivity(emptyAccountActivity()),
+        })
+      },
 
       pushActivity: (entry) => {
+        const full = { ...entry, id: entry.id || `a-${Date.now()}`, at: entry.at || Date.now() }
         set({
-          activityFeed: [{ ...entry, id: entry.id || `a-${Date.now()}` }, ...get().activityFeed].slice(
-            0,
-            200,
-          ),
+          activityFeed: [full, ...get().activityFeed].slice(0, 200),
+        })
+        void get()._persistActivity({
+          id: full.id,
+          type: full.type,
+          title: full.title,
+          detail: full.detail,
+          discussionId: full.detail,
+          at: full.at,
         })
       },
 
       recordPostCreated: ({ discussionId, title }) => {
+        const entry = {
+          id: `a-${Date.now()}`,
+          type: 'post',
+          title,
+          at: Date.now(),
+          detail: discussionId,
+        }
         set({
           stats: { ...get().stats, postsCreated: (get().stats.postsCreated || 0) + 1 },
-          activityFeed: [
-            {
-              id: `a-${Date.now()}`,
-              type: 'post',
-              title,
-              at: Date.now(),
-              detail: discussionId,
-            },
-            ...get().activityFeed,
-          ].slice(0, 200),
+          activityFeed: [entry, ...get().activityFeed].slice(0, 200),
+          joinedDiscussionIds: Array.from(new Set([discussionId, ...get().joinedDiscussionIds])),
+        })
+        void get()._persistActivity({
+          ...entry,
+          discussionId,
         })
       },
 
-      recordComment: ({ discussionId, title, category, stance }) => {
+      recordComment: ({ discussionId, title, category, body }) => {
         const h = {
           discussionId,
           title,
           category: category || CATEGORIES[0],
-          stance,
+          body: body || '',
           at: Date.now(),
         }
         set({
           commentHistory: [h, ...get().commentHistory].slice(0, 200),
-          stanceHistory: [
-            { discussionId, stance, category: h.category, at: h.at },
-            ...get().stanceHistory,
-          ].slice(0, 400),
           joinedDiscussionIds: Array.from(
             new Set([discussionId, ...get().joinedDiscussionIds]),
           ),
@@ -208,38 +312,87 @@ export const useUserStore = create(
               id: `a-${Date.now()}`,
               type: 'comment',
               title,
-              at: Date.now(),
+              at: h.at,
+              detail: discussionId,
+            },
+            ...get().activityFeed,
+          ].slice(0, 200),
+        })
+        void get()._persistActivity({
+          type: 'comment',
+          title,
+          detail: discussionId,
+          discussionId,
+          at: h.at,
+        })
+      },
+
+      recordStance: async ({ discussionId, title, category, stance }) => {
+        const at = Date.now()
+        const h = { discussionId, stance, category: category || CATEGORIES[0], title, at }
+        set({
+          stanceHistory: [h, ...get().stanceHistory.filter((s) => s.discussionId !== discussionId)].slice(
+            0,
+            400,
+          ),
+          joinedDiscussionIds: Array.from(
+            new Set([discussionId, ...get().joinedDiscussionIds]),
+          ),
+          activityFeed: [
+            {
+              id: `a-${Date.now()}`,
+              type: 'stance',
+              title: title || 'Discussion',
+              at,
               detail: stance,
             },
             ...get().activityFeed,
           ].slice(0, 200),
         })
+
+        const token = get().googleIdToken
+        if (!token?.trim()) return
+
+        try {
+          await postVote(token, discussionId, stance)
+          void get()._persistActivity({
+            type: 'stance',
+            title,
+            detail: stance,
+            discussionId,
+            at,
+          })
+        } catch {
+          await get().syncAccountFromServer()
+        }
       },
 
       recordVoteGiven: (delta) => {
         const up = get().stats.upvotesGiven || 0
         const down = get().stats.downvotesGiven || 0
+        const entry = {
+          id: `a-${Date.now()}`,
+          type: 'vote',
+          title: delta > 0 ? 'Upvoted a comment' : 'Downvoted a comment',
+          at: Date.now(),
+        }
         set({
           stats: {
             ...get().stats,
             upvotesGiven: delta > 0 ? up + 1 : up,
             downvotesGiven: delta < 0 ? down + 1 : down,
           },
-          activityFeed: [
-            {
-              id: `a-${Date.now()}`,
-              type: 'vote',
-              title: delta > 0 ? 'Upvoted a comment' : 'Downvoted a comment',
-              at: Date.now(),
-            },
-            ...get().activityFeed,
-          ].slice(0, 200),
+          activityFeed: [entry, ...get().activityFeed].slice(0, 200),
         })
+        void get()._persistActivity(entry)
       },
 
-      toggleDiscussionLike: (discussionId, title) => {
+      toggleDiscussionLike: async (discussionId, title) => {
+        const token = get().googleIdToken
         const cur = new Set(get().likedDiscussionIds ?? [])
-        if (cur.has(discussionId)) {
+        const wasLiked = cur.has(discussionId)
+
+        if (wasLiked) {
           cur.delete(discussionId)
           set({
             likedDiscussionIds: [...cur],
@@ -250,20 +403,36 @@ export const useUserStore = create(
           })
         } else {
           cur.add(discussionId)
+          const entry = {
+            id: `a-${Date.now()}`,
+            type: 'like',
+            title: title || 'Discussion',
+            at: Date.now(),
+            detail: discussionId,
+          }
           set({
             likedDiscussionIds: [...cur],
             stats: { ...get().stats, likesGiven: (get().stats.likesGiven || 0) + 1 },
-            activityFeed: [
-              {
-                id: `a-${Date.now()}`,
-                type: 'like',
-                title: title || 'Discussion',
-                at: Date.now(),
-                detail: discussionId,
-              },
-              ...get().activityFeed,
-            ].slice(0, 200),
+            activityFeed: [entry, ...get().activityFeed].slice(0, 200),
           })
+        }
+
+        if (!token?.trim()) return
+
+        try {
+          if (wasLiked) {
+            await unsaveDebate(token, discussionId)
+          } else {
+            await saveDebate(token, discussionId)
+            void get()._persistActivity({
+              type: 'like',
+              title: title || 'Discussion',
+              detail: discussionId,
+              discussionId,
+            })
+          }
+        } catch {
+          await get().syncAccountFromServer()
         }
       },
 
@@ -292,20 +461,26 @@ export const useUserStore = create(
       },
     }),
     {
-      name: 'polaris-user-v1',
+      name: 'polaris-user-v2',
+      merge: (persisted, current) => {
+        const merged = { ...current, ...(persisted || {}) }
+        return migrateLegacyAccountState(merged)
+      },
+      onRehydrateStorage: () => (state) => {
+        if (!state?.googleSub?.trim() || !state?.googleIdToken?.trim()) return
+        queueMicrotask(() => {
+          useUserStore.getState().syncAccountFromServer()
+        })
+      },
       partialize: (s) => ({
         googleSub: s.googleSub,
+        googleIdToken: s.googleIdToken,
         email: s.email,
         name: s.name,
         age: s.age,
         birthDate: s.birthDate,
-        birthLocked: s.birthLocked, // [FE-2]
-        commentHistory: s.commentHistory,
-        stanceHistory: s.stanceHistory,
-        joinedDiscussionIds: s.joinedDiscussionIds,
-        stats: s.stats,
-        activityFeed: s.activityFeed,
-        likedDiscussionIds: s.likedDiscussionIds,
+        birthLocked: s.birthLocked,
+        accounts: snapshotAccountActivity(s, s.googleSub),
       }),
     },
   ),

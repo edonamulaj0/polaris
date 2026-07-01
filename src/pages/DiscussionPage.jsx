@@ -311,7 +311,13 @@ function DiscussionPageInner({ id }) {
         </div>
       )}
 
-      {!isPending && <CommentSection debateId={post.id} />}
+      {!isPending && (
+        <CommentSection
+          debateId={post.id}
+          debateTitle={post.title}
+          debateCategory={post.category}
+        />
+      )}
 
       {!isPending && !isDesktop && (
         <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] left-0 right-0 z-[50] border-t border-[var(--border)] bg-[var(--page)]/95 px-4 py-3 backdrop-blur-md lg:hidden">

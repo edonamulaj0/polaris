@@ -126,7 +126,7 @@ export function AuthGate() {
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className="w-full max-w-md rounded-none border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-card)]"
+              className="w-full max-w-md rounded-3xl bg-[var(--surface)] p-6 shadow-[var(--shadow-card)]"
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               role="alert"
@@ -166,7 +166,7 @@ export function AuthGate() {
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className="w-full max-w-md rounded-none border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-card)]"
+              className="w-full max-w-md rounded-3xl bg-[var(--surface)] p-6 shadow-[var(--shadow-card)]"
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: 'spring', stiffness: 280, damping: 26 }}
@@ -214,7 +214,7 @@ export function AuthGate() {
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className="w-full max-w-md rounded-none border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-card)]"
+              className="w-full max-w-md rounded-3xl bg-[var(--surface)] p-6 shadow-[var(--shadow-card)]"
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               role="dialog"
@@ -241,7 +241,7 @@ export function AuthGate() {
                   setDobDraft(e.target.value)
                   setBirthdayError('')
                 }}
-                className="mt-1 w-full rounded-none border border-[var(--border)] bg-[var(--surface-hi)] px-3 py-3 text-[var(--text)] outline-none focus:border-[var(--signal)]/45 disabled:opacity-50"
+                className="mt-1 w-full rounded-2xl bg-[var(--surface-hi)] px-4 py-3 text-[var(--text)] shadow-[var(--shadow-pill)] outline-none focus:shadow-[0_0_0_3px_rgba(244,208,104,.25)] disabled:opacity-50"
               />
               {birthdayError && (
                 <p className="mt-2 text-sm text-[var(--signal)]" role="alert">
@@ -251,7 +251,7 @@ export function AuthGate() {
               <motion.button
                 type="button"
                 disabled={!dobOk || savingBirthday || birthLocked} // [FE-3]
-                className="signal-glow-hover mt-5 w-full rounded-none bg-[var(--signal)] py-3 text-sm font-bold uppercase tracking-wide text-[var(--signal-on)] disabled:cursor-not-allowed disabled:opacity-40"
+                className="signal-glow-hover mt-5 w-full rounded-full bg-[var(--gold)] py-3 text-sm font-semibold text-[var(--signal-on)] shadow-[0_4px_16px_-4px_rgba(244,208,104,.45)] disabled:cursor-not-allowed disabled:opacity-40"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={handleSaveBirthday}

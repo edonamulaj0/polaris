@@ -1,18 +1,31 @@
 @import 'tailwindcss';
 
-/* ─── Shared brand ──────────────────────────────────────────────────── */
+/* ─── Shared brand — Nautical Celestial ─────────────────────────────── */
 :root {
-  --signal:       #D93025;
-  --signal-dim:   #9A1F17;
-  --font-display: 'Bebas Neue', 'Impact', sans-serif;
-  --font-heading: 'DM Serif Display', Georgia, serif;
-  --font-body:    'IBM Plex Sans', 'Helvetica Neue', sans-serif;
-  --font-mono:    'IBM Plex Mono', monospace;
+  --gold:         #F4D068;
+  --gold-dim:     #C9A84C;
+  --silver:       #E2E8F0;
+  --navy-deep:    #0A1128;
+  --navy-mid:     #111B36;
+  --navy-surface: #162040;
+  --navy-elevated:#1C2848;
+  --navy-text:    #0F172A;
+  --silver-white: #F8FAFC;
+  --teal-sea:     #0D7377;
+  --teal-calm:    #14A3A8;
+  --amber-twilight:#D97706;
+  --amber-glow:   #F59E0B;
 
-  /* Stance — same hues both modes */
-  --for:     #E8E8EF;
-  --against: #D93025;
-  --neutral: #4A4A52;
+  --signal:       var(--gold);
+  --signal-dim:   var(--gold-dim);
+  --font-display: 'Cormorant Garamond', Georgia, serif;
+  --font-heading: 'Cormorant Garamond', Georgia, serif;
+  --font-body:    'Inter', system-ui, sans-serif;
+  --font-mono:    'Inter', system-ui, sans-serif;
+
+  --for:     var(--teal-calm);
+  --against: var(--amber-glow);
+  --neutral: #64748B;
 }
 
 /* ─── Dark theme (default) ──────────────────────────────────────────── */
@@ -20,128 +33,116 @@
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --ink-950:  #0E0E0F;
-  --ink-900:  #161618;
-  --ink-800:  #1E1E21;
-  --ink-700:  #2A2A2E;
-  --ink-500:  #4A4A52;
-  --ink-300:  #9A9AA8;
-  --ink-100:  #E8E8EF;
-  --ink-000:  #F7F7FA;
+  --signal-muted: rgba(244,208,104,.12);
+  --signal-on:    var(--navy-deep);
 
-  --signal-muted: rgba(217,48,37,.12);
-  --signal-on:    #FFFFFF;
+  --page:         var(--navy-deep);
+  --surface:      var(--navy-surface);
+  --surface-hi:   var(--navy-elevated);
+  --border:       transparent;
+  --border-hi:    transparent;
+  --text:         var(--silver);
+  --text-hi:      #F1F5F9;
+  --muted:        #94A3B8;
+  --overlay:      rgba(10,17,40,.75);
+  --shadow-card:  0 10px 30px -10px rgba(0,0,0,.45), 0 4px 12px -4px rgba(0,0,0,.25);
+  --shadow-hover: 0 16px 40px -12px rgba(244,208,104,.12), 0 10px 30px -10px rgba(0,0,0,.5);
+  --shadow-pill:  0 4px 16px -4px rgba(0,0,0,.35);
+  --shadow-inset: inset 0 1px 0 rgba(226,232,240,.06);
+  --grain-opacity: 0;
+  --scrollbar-track: var(--navy-deep);
+  --scrollbar-thumb: var(--navy-elevated);
 
-  --page:         var(--ink-950);
-  --surface:      var(--ink-900);
-  --surface-hi:   var(--ink-800);
-  --border:       rgba(255,255,255,.07);
-  --border-hi:    rgba(255,255,255,.13);
-  --text:         var(--ink-100);
-  --text-hi:      var(--ink-000);
-  --muted:        var(--ink-300);
-  --overlay:      rgba(0,0,0,.65);
-  --shadow-card:  0 8px 32px rgba(0,0,0,.25);
-  --shadow-hover: 0 8px 32px rgba(217,48,37,.08);
-  --grain-opacity: 0.035;
-  --scrollbar-track: var(--ink-950);
-  --scrollbar-thumb: var(--ink-700);
-
-  --for:     #E8E8EF;
-  --neutral: #4A4A52;
-
-  --stance-for-bg:      rgba(232,232,239,.08);
-  --stance-for-text:    var(--for);
-  /* [REFACTOR U-1] Selected-state tokens — separate from idle for contrast */
-  --stance-for-selected-bg:   #3A3A44;
-  --stance-for-selected-text: var(--ink-000);
-  --stance-against-bg:  var(--signal-muted);
-  --stance-against-text: var(--signal);
-  --stance-neutral-bg:  var(--ink-800);
+  --stance-for-bg:      rgba(20,163,168,.12);
+  --stance-for-text:    var(--teal-calm);
+  --stance-for-selected-bg:   var(--teal-sea);
+  --stance-for-selected-text: var(--silver-white);
+  --stance-against-bg:  rgba(245,158,11,.12);
+  --stance-against-text: var(--amber-glow);
+  --stance-neutral-bg:  rgba(100,116,139,.15);
   --stance-neutral-text: var(--muted);
 
-  /* Both-sides section tokens */
-  --side-for-border:     rgba(232,232,239,.20);
-  --side-for-header:     var(--ink-100);
-  --side-against-border: rgba(217,48,37,.25);
-  --side-against-header: var(--signal);
+  --side-for-border:     transparent;
+  --side-for-header:     var(--teal-calm);
+  --side-against-border: transparent;
+  --side-against-header: var(--amber-glow);
   --argument-bg:         var(--surface-hi);
-  --argument-border:     var(--border);
-  --objection-bg:        rgba(217,48,37,.06);
-  --objection-border:    rgba(217,48,37,.20);
+  --argument-border:     transparent;
+  --objection-bg:        rgba(245,158,11,.06);
+  --objection-border:    transparent;
   --ground-bg:           var(--surface);
 
-  /* Voting widget tokens */
-  --vote-for-active:         var(--ink-100);
-  --vote-for-active-text:    var(--page);
-  --vote-against-active:     var(--signal);
-  --vote-against-active-text: var(--signal-on);
-  --vote-neutral-active:     var(--ink-500);
-  --vote-neutral-active-text: var(--ink-000);
+  --vote-for-active:         var(--teal-sea);
+  --vote-for-active-text:    var(--silver-white);
+  --vote-against-active:     var(--amber-twilight);
+  --vote-against-active-text: var(--silver-white);
+  --vote-neutral-active:     #475569;
+  --vote-neutral-active-text: var(--silver-white);
+
+  --spectrum-start: var(--teal-sea);
+  --spectrum-mid:   #5B8A8C;
+  --spectrum-end:   var(--amber-twilight);
+  --nav-pill-bg:    rgba(22,32,64,.6);
+  --nav-pill-hover: rgba(226,232,240,.08);
+  --nav-pill-active: rgba(244,208,104,.14);
 }
 
 /* ─── Light theme ───────────────────────────────────────────────────── */
 [data-theme="light"] {
   color-scheme: light;
 
-  --ink-950:  #F7F7FA;
-  --ink-900:  #FFFFFF;
-  --ink-800:  #F0F0F4;
-  --ink-700:  #E2E2EA;
-  --ink-500:  #9898A8;
-  --ink-300:  #5C5C6E;
-  --ink-100:  #2A2A32;
-  --ink-000:  #0E0E0F;
+  --signal-muted: rgba(244,208,104,.18);
+  --signal-on:    var(--navy-text);
 
-  --signal-muted: rgba(217,48,37,.08);
-  --signal-on:    #FFFFFF;
+  --page:         var(--silver-white);
+  --surface:      #FFFFFF;
+  --surface-hi:   #F1F5F9;
+  --border:       transparent;
+  --border-hi:    transparent;
+  --text:         #334155;
+  --text-hi:      var(--navy-text);
+  --muted:        #64748B;
+  --overlay:      rgba(15,23,42,.4);
+  --shadow-card:  0 10px 30px -10px rgba(15,23,42,.08), 0 4px 16px -4px rgba(100,116,139,.12);
+  --shadow-hover: 0 16px 40px -12px rgba(15,23,42,.12), 0 8px 24px -8px rgba(100,116,139,.15);
+  --shadow-pill:  0 4px 16px -4px rgba(15,23,42,.06);
+  --shadow-inset: inset 0 1px 0 rgba(255,255,255,.8);
+  --grain-opacity: 0;
+  --scrollbar-track: var(--silver-white);
+  --scrollbar-thumb: #CBD5E1;
 
-  --page:         var(--ink-950);
-  --surface:      var(--ink-900);
-  --surface-hi:   var(--ink-800);
-  --border:       rgba(0,0,0,.08);
-  --border-hi:    rgba(0,0,0,.14);
-  --text:         var(--ink-100);
-  --text-hi:      var(--ink-000);
-  --muted:        var(--ink-300);
-  --overlay:      rgba(14,14,15,.45);
-  --shadow-card:  0 4px 24px rgba(0,0,0,.06);
-  --shadow-hover: 0 8px 32px rgba(217,48,37,.12);
-  --grain-opacity: 0.025;
-  --scrollbar-track: var(--ink-950);
-  --scrollbar-thumb: var(--ink-700);
-
-  --for:     #2A2A32;
-  --neutral: #9898A8;
-
-  --stance-for-bg:      #F0F0F4;
-  --stance-for-text:    var(--for);
-  /* [REFACTOR U-1] Selected-state tokens — dark bg, light text in light mode */
-  --stance-for-selected-bg:   #2A2A32;
+  --stance-for-bg:      rgba(13,115,119,.08);
+  --stance-for-text:    var(--teal-sea);
+  --stance-for-selected-bg:   var(--teal-sea);
   --stance-for-selected-text: #FFFFFF;
-  --stance-against-bg:  var(--signal-muted);
-  --stance-against-text: var(--signal);
-  --stance-neutral-bg:  var(--ink-800);
+  --stance-against-bg:  rgba(217,119,6,.08);
+  --stance-against-text: var(--amber-twilight);
+  --stance-neutral-bg:  #F1F5F9;
   --stance-neutral-text: var(--muted);
 
-  /* Both-sides section tokens */
-  --side-for-border:     rgba(42,42,50,.15);
-  --side-for-header:     var(--ink-100);
-  --side-against-border: rgba(217,48,37,.25);
-  --side-against-header: var(--signal);
+  --side-for-border:     transparent;
+  --side-for-header:     var(--teal-sea);
+  --side-against-border: transparent;
+  --side-against-header: var(--amber-twilight);
   --argument-bg:         var(--surface-hi);
-  --argument-border:     var(--border);
-  --objection-bg:        rgba(217,48,37,.06);
-  --objection-border:    rgba(217,48,37,.20);
+  --argument-border:     transparent;
+  --objection-bg:        rgba(217,119,6,.05);
+  --objection-border:    transparent;
   --ground-bg:           var(--surface);
 
-  /* Voting widget tokens */
-  --vote-for-active:         #1a1a22;
-  --vote-for-active-text:    var(--page);
-  --vote-against-active:     var(--signal);
-  --vote-against-active-text: var(--signal-on);
-  --vote-neutral-active:     var(--ink-500);
-  --vote-neutral-active-text: var(--ink-000);
+  --vote-for-active:         var(--teal-sea);
+  --vote-for-active-text:    #FFFFFF;
+  --vote-against-active:     var(--amber-twilight);
+  --vote-against-active-text: #FFFFFF;
+  --vote-neutral-active:     #64748B;
+  --vote-neutral-active-text: #FFFFFF;
+
+  --spectrum-start: var(--teal-sea);
+  --spectrum-mid:   #5B8A8C;
+  --spectrum-end:   var(--amber-twilight);
+  --nav-pill-bg:    rgba(241,245,249,.8);
+  --nav-pill-hover: rgba(15,23,42,.04);
+  --nav-pill-active: rgba(244,208,104,.22);
 }
 
 /* ─── Reset & base ───────────────────────────────────────────────────── */
@@ -157,49 +158,109 @@ body {
   color: var(--text);
   background-color: var(--page);
   -webkit-font-smoothing: antialiased;
-  transition: background-color .2s ease, color .2s ease;
+  transition: background-color .3s ease, color .3s ease;
 }
 
 #root { min-height: 100svh; position: relative; z-index: 1; }
 
+/* Celestial star field + soft gradient (dark mode) */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  opacity: var(--grain-opacity);
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 1;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(244,208,104,.06) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 40% at 90% 80%, rgba(20,163,168,.05) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 30% at 10% 60%, rgba(226,232,240,.03) 0%, transparent 45%);
+}
+
+html[data-theme="light"] body::before {
+  background:
+    radial-gradient(ellipse 70% 40% at 50% 0%, rgba(244,208,104,.08) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 30% at 100% 100%, rgba(13,115,119,.04) 0%, transparent 45%);
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Cg fill='%23E2E8F0' fill-opacity='0.15'%3E%3Ccircle cx='42' cy='68' r='0.8'/%3E%3Ccircle cx='128' cy='24' r='0.6'/%3E%3Ccircle cx='210' cy='95' r='0.7'/%3E%3Ccircle cx='320' cy='45' r='0.5'/%3E%3Ccircle cx='380' cy='130' r='0.8'/%3E%3Ccircle cx='55' cy='180' r='0.5'/%3E%3Ccircle cx='165' cy='210' r='0.6'/%3E%3Ccircle cx='290' cy='175' r='0.7'/%3E%3Ccircle cx='350' cy='260' r='0.5'/%3E%3Ccircle cx='90' cy='310' r='0.6'/%3E%3Ccircle cx='230' cy='340' r='0.8'/%3E%3Ccircle cx='180' cy='120' r='0.4'/%3E%3Ccircle cx='300' cy='300' r='0.5'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 400px 400px;
+}
+
+html[data-theme="light"] body::after {
+  opacity: 0.15;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Cg fill='%230F172A' fill-opacity='0.08'%3E%3Ccircle cx='42' cy='68' r='0.8'/%3E%3Ccircle cx='128' cy='24' r='0.6'/%3E%3Ccircle cx='210' cy='95' r='0.7'/%3E%3Ccircle cx='320' cy='45' r='0.5'/%3E%3Ccircle cx='380' cy='130' r='0.8'/%3E%3Ccircle cx='55' cy='180' r='0.5'/%3E%3Ccircle cx='165' cy='210' r='0.6'/%3E%3Ccircle cx='290' cy='175' r='0.7'/%3E%3Ccircle cx='350' cy='260' r='0.5'/%3E%3Ccircle cx='90' cy='310' r='0.6'/%3E%3Ccircle cx='230' cy='340' r='0.8'/%3E%3C/g%3E%3C/svg%3E");
 }
 
 /* ─── Typography utilities ───────────────────────────────────────────── */
-.font-display  { font-family: var(--font-display); letter-spacing: .04em; }
+.font-display  { font-family: var(--font-display); }
 .font-heading  { font-family: var(--font-heading); }
 .font-body     { font-family: var(--font-body); }
-.font-mono     { font-family: var(--font-mono); }
+.font-mono     { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
-/* ─── Signal accent animations ───────────────────────────────────────── */
-@keyframes signal-pulse {
-  0%,100% { box-shadow: 0 0 0 1px rgba(217,48,37,.3), 0 0 18px rgba(217,48,37,.15); }
-  50%     { box-shadow: 0 0 0 1px rgba(217,48,37,.55), 0 0 28px rgba(217,48,37,.28); }
+/* ─── Elevation & pill utilities ─────────────────────────────────────── */
+.elevated {
+  box-shadow: var(--shadow-card);
 }
-.signal-glow-hover:hover { animation: signal-pulse 2s ease-in-out infinite; }
+.elevated-hover:hover {
+  box-shadow: var(--shadow-hover);
+}
+.pill {
+  border-radius: 9999px;
+}
+.nav-pill {
+  border-radius: 9999px;
+  background: var(--nav-pill-bg);
+  box-shadow: var(--shadow-pill);
+  transition: background .2s ease, box-shadow .2s ease, color .2s ease;
+}
+.nav-pill:hover {
+  background: var(--nav-pill-hover);
+  box-shadow: 0 0 20px -4px rgba(226,232,240,.15);
+}
+.nav-pill-active {
+  background: var(--nav-pill-active);
+  color: var(--text-hi);
+  box-shadow: 0 0 24px -4px rgba(244,208,104,.2);
+}
+
+/* ─── Gold accent glow ───────────────────────────────────────────────── */
+@keyframes starlight-pulse {
+  0%,100% { box-shadow: 0 4px 20px -4px rgba(244,208,104,.25), 0 0 0 0 rgba(244,208,104,.1); }
+  50%     { box-shadow: 0 8px 28px -4px rgba(244,208,104,.4), 0 0 0 4px rgba(244,208,104,.08); }
+}
+.signal-glow-hover:hover { animation: starlight-pulse 2.5s ease-in-out infinite; }
 
 /* ─── Verification badge ─────────────────────────────────────────────── */
 .badge-verified {
   display: inline-flex;
   align-items: center;
   gap: .3rem;
-  padding: .2rem .6rem;
-  border-radius: 99px;
-  border: 1px solid rgba(217,48,37,.4);
+  padding: .25rem .75rem;
+  border-radius: 9999px;
   background: var(--signal-muted);
-  color: var(--signal);
+  color: var(--gold);
   font-family: var(--font-body);
   font-size: .6875rem;
-  font-weight: 700;
-  letter-spacing: .08em;
+  font-weight: 600;
+  letter-spacing: .06em;
   text-transform: uppercase;
+  box-shadow: 0 2px 8px -2px rgba(244,208,104,.2);
+}
+
+/* ─── Spectrum stance bar ────────────────────────────────────────────── */
+.spectrum-track {
+  border-radius: 9999px;
+  background: linear-gradient(90deg, var(--spectrum-start) 0%, var(--spectrum-mid) 50%, var(--spectrum-end) 100%);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,.2), 0 2px 8px -2px rgba(13,115,119,.2);
+  overflow: hidden;
 }
 
 /* ─── Skeleton shimmer ───────────────────────────────────────────────── */
@@ -214,16 +275,46 @@ body::before {
     var(--surface) 100%);
   background-size: 200% 100%;
   animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 9999px;
 }
 
-/* ─── Horizontal rule / dividers ─────────────────────────────────────── */
-hr.signal { border: none; height: 2px; background: var(--signal); width: 2.5rem; margin: 0; }
+/* ─── Gold accent rule ───────────────────────────────────────────────── */
+hr.signal {
+  border: none;
+  height: 2px;
+  background: linear-gradient(90deg, var(--gold), transparent);
+  width: 3rem;
+  margin: 0;
+  border-radius: 9999px;
+}
 
 /* ─── Scrollbar ──────────────────────────────────────────────────────── */
-::-webkit-scrollbar       { width: 4px; height: 4px; }
+::-webkit-scrollbar       { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
-::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 9999px; }
 
-/* Scrollbar hide — used by TrendingStrip and any horizontal scroll container */
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ─── Light mode showcase inset ──────────────────────────────────────── */
+.showcase-inset {
+  --page: var(--silver-white);
+  --surface: #FFFFFF;
+  --surface-hi: #F1F5F9;
+  --text: #334155;
+  --text-hi: var(--navy-text);
+  --muted: #64748B;
+  --shadow-card: 0 10px 30px -10px rgba(15,23,42,.08), 0 4px 16px -4px rgba(100,116,139,.12);
+  --nav-pill-bg: rgba(241,245,249,.8);
+  --nav-pill-active: rgba(244,208,104,.22);
+  --spectrum-start: var(--teal-sea);
+  --spectrum-end: var(--amber-twilight);
+  color: var(--text);
+  background: var(--page);
+  border-radius: 1.25rem;
+  box-shadow:
+    0 25px 60px -15px rgba(0,0,0,.5),
+    0 12px 30px -10px rgba(15,23,42,.15),
+    0 0 0 1px rgba(226,232,240,.1);
+  overflow: hidden;
+}

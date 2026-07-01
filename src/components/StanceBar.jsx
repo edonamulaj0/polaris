@@ -23,16 +23,16 @@ export function StanceBar({
   }, [commentCount, forPct, againstPct])
 
   const segments = [
-    { key: 'for',     label: 'For',     pct: forPct,     color: 'bg-[var(--for)]' },
-    { key: 'against', label: 'Against', pct: againstPct, color: 'bg-[var(--signal)]' },
-    { key: 'neutral', label: 'Neutral', pct: neutralPct, color: 'bg-[var(--neutral)]' },
+    { key: 'for', label: 'For', pct: forPct },
+    { key: 'against', label: 'Against', pct: againstPct },
+    { key: 'neutral', label: 'Neutral', pct: neutralPct },
   ]
 
   return (
     <div className={`relative ${className}`}>
       {showTooltip && hovered && (
         <div
-          className="pointer-events-none absolute -top-10 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-none border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 text-xs text-[var(--text)] shadow-[var(--shadow-card)]"
+          className="pointer-events-none absolute -top-10 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--text)] shadow-[var(--shadow-card)]"
           role="tooltip"
         >
           {segments.find((s) => s.key === hovered)?.label}:{' '}
@@ -45,17 +45,22 @@ export function StanceBar({
           )}
         </div>
       )}
-      <div className="flex h-2.5 w-full overflow-hidden rounded-none bg-[var(--surface-hi)] ring-1 ring-[var(--border)]">
+      <div className="spectrum-track relative flex h-3 w-full">
         {segments.map((s, i) => (
           <motion.div
             key={s.key}
-            className={`min-w-0 ${s.color} h-full shrink-0 cursor-default opacity-95`}
+            className="relative min-w-0 h-full shrink-0 cursor-default"
             initial={{ width: 0 }}
             animate={{ width: `${s.pct}%` }}
             transition={{ ...segmentSpring, delay: i * 0.06 }}
             onMouseEnter={() => setHovered(s.key)}
             onMouseLeave={() => setHovered(null)}
-          />
+          >
+            <div
+              className="absolute inset-0 bg-black/10 transition-opacity"
+              style={{ opacity: hovered === s.key ? 0.5 : 1 }}
+            />
+          </motion.div>
         ))}
       </div>
     </div>

@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
 import { useMemo, useState } from 'react';
+import { GoogleLogin } from '@react-oauth/google';
+import { jwtDecode } from 'jwt-decode';
 import { useUserStore } from '../stores/userStore';
 import type { Comment, UserModerationState } from '../types/moderation';
 import { MODERATION_DISCLAIMER, WARNING_MESSAGE } from '../types/moderation';
@@ -34,6 +36,49 @@ async function fetchModerationState(token: string) {
   });
   if (!res.ok) return null;
   return res.json() as Promise<UserModerationState>;
+}
+
+function CommentAuthPrompt() {
+  const setGoogleProfileFromJwt = useUserStore((s) => s.setGoogleProfileFromJwt);
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+  if (!clientId) {
+    return (
+      <p className="mb-6 text-sm text-[var(--muted)]">
+        Sign-in is not configured. Set <code className="text-[var(--text)]">VITE_GOOGLE_CLIENT_ID</code>{' '}
+        to comment.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mb-8 rounded-none border border-[var(--border)] bg-[var(--surface-hi)] px-5 py-5">
+      <p className="font-mono text-[10px] uppercase tracking-[.15em] text-[var(--signal)]">
+        Sign in to comment
+      </p>
+      <p className="mt-2 text-sm leading-relaxed text-[var(--text)]">
+        Your session expired or you need to sign in with Google before joining the debate.
+      </p>
+      <div className="mt-4 flex justify-start">
+        <GoogleLogin
+          onSuccess={(res) => {
+            const credential = res.credential;
+            if (!credential) return;
+            try {
+              setGoogleProfileFromJwt(jwtDecode(credential), credential);
+            } catch {
+              /* invalid jwt */
+            }
+          }}
+          onError={() => {}}
+          theme="outline"
+          size="large"
+          text="signin_with"
+          shape="rectangular"
+        />
+      </div>
+    </div>
+  );
 }
 
 function ModerationNotice({
@@ -205,7 +250,7 @@ function CommentThread({
       <CommentItem
         comment={comment}
         currentUserId={currentUserId}
-        onReply={() => setReplying(true)}
+        onReply={token ? () => setReplying(true) : undefined}
       />
       {replyCount > 0 && (
         <button
@@ -236,16 +281,21 @@ function CommentThread({
 
 function CommentInput({
   debateId,
+  debateTitle,
+  debateCategory,
   token,
   modState,
   onModerationNotice,
 }: {
   debateId: string;
+  debateTitle?: string;
+  debateCategory?: string;
   token: string;
   modState: UserModerationState | null;
   onModerationNotice: (msg: string) => void;
 }) {
   const queryClient = useQueryClient();
+  const recordComment = useUserStore((s) => s.recordComment);
   const [body, setBody] = useState('');
 
   const mutation = useMutation({
@@ -285,11 +335,17 @@ function CommentInput({
       setBody('');
       return { prev };
     },
-    onSuccess: (data) => {
+    onSuccess: (data, text) => {
       if (data.status === 'flagged' || data.status === 'removed') {
         queryClient.invalidateQueries({ queryKey: ['comments', debateId] });
       }
       if (data.message) onModerationNotice(data.message);
+      recordComment({
+        discussionId: debateId,
+        title: debateTitle || 'Discussion',
+        category: debateCategory,
+        body: text,
+      });
     },
     onError: (_err, _text, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(['comments', debateId], ctx.prev);
@@ -318,6 +374,9 @@ function CommentInput({
 
   return (
     <div className="space-y-3">
+      <label className="font-mono text-[10px] uppercase tracking-[.15em] text-[var(--text-hi)]">
+        Your comment
+      </label>
       {blocked && timeoutUntil && (
         <div className="border border-[var(--signal)]/40 bg-[var(--surface-hi)] px-4 py-3">
           <p className="text-sm text-[var(--muted)]">{formatTimeoutCountdown(timeoutUntil)}</p>
@@ -358,13 +417,21 @@ function CommentInput({
   );
 }
 
-export function CommentSection({ debateId }: { debateId: string }) {
+export function CommentSection({
+  debateId,
+  debateTitle,
+  debateCategory,
+}: {
+  debateId: string;
+  debateTitle?: string;
+  debateCategory?: string;
+}) {
   const googleSub = useUserStore((s) => s.googleSub);
   const googleIdToken = useUserStore((s) => s.googleIdToken);
   const [notice, setNotice] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['comments', debateId],
+    queryKey: ['comments', debateId, googleIdToken ?? 'anon'],
     queryFn: () => fetchComments(debateId, googleIdToken || undefined),
     refetchInterval: 30000,
   });
@@ -407,17 +474,21 @@ export function CommentSection({ debateId }: { debateId: string }) {
       )}
 
       {!googleSub ? (
-        <p className="mb-6 text-sm text-[var(--muted)]">Sign in to join the debate</p>
-      ) : googleIdToken ? (
+        <CommentAuthPrompt />
+      ) : !googleIdToken ? (
+        <CommentAuthPrompt />
+      ) : (
         <div className="mb-8">
           <CommentInput
             debateId={debateId}
+            debateTitle={debateTitle}
+            debateCategory={debateCategory}
             token={googleIdToken}
             modState={modState ?? null}
             onModerationNotice={setNotice}
           />
         </div>
-      ) : null}
+      )}
 
       {isLoading && (
         <p className="font-mono text-[10px] uppercase tracking-widest text-[var(--muted)]">
@@ -425,7 +496,9 @@ export function CommentSection({ debateId }: { debateId: string }) {
         </p>
       )}
       {error && (
-        <p className="font-mono text-[10px] text-[var(--signal)]">Could not load comments.</p>
+        <p className="mb-4 font-mono text-[10px] text-[var(--signal)]">
+          Could not load comments. You can still post above — try refreshing if this persists.
+        </p>
       )}
 
       <div>

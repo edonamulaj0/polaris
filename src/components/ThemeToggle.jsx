@@ -23,7 +23,7 @@ export function ThemeToggle({ className = '' }) {
     <motion.button
       type="button"
       onClick={toggle}
-      className={`flex h-9 w-9 items-center justify-center rounded-none text-[var(--text)] transition-colors hover:bg-[var(--surface-hi)] ${className}`}
+      className={`flex h-10 w-10 items-center justify-center rounded-full bg-[var(--nav-pill-bg)] text-[var(--text)] shadow-[var(--shadow-pill)] transition-colors hover:bg-[var(--nav-pill-hover)] ${className}`}
       aria-label="Toggle color theme"
       title={labels[theme]}
       whileTap={{ scale: 0.93 }}

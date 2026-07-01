@@ -28,26 +28,30 @@ export function HomePage() {
     [visiblePosts],
   )
 
+  const headerBlock = (
+    <header className="mb-10 pb-8">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <span className="rounded-full bg-[var(--signal-muted)] px-3 py-1 font-body text-[10px] font-semibold uppercase tracking-[.14em] text-[var(--gold)]">
+          Daily Intelligence Brief
+        </span>
+        <span className="font-body text-[10px] text-[var(--muted)]">
+          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+        </span>
+      </div>
+      <h1 className="font-heading text-4xl sm:text-5xl font-semibold tracking-wide text-[var(--text-hi)] leading-tight">
+        Today&apos;s Debates
+      </h1>
+      <hr className="signal mt-5" />
+      <p className="mt-4 max-w-2xl text-sm leading-relaxed text-[var(--muted)] font-body">
+        Curated debates and AI-gathered news — both sides explained, human-verified where noted.
+      </p>
+    </header>
+  )
+
   if (loading && !posts.length) {
     return (
-      <div className="flex flex-col gap-6 sm:gap-8">
-        <header className="mb-8 border-b border-[var(--border)] pb-6">
-          <div className="flex items-center justify-between mb-3">
-            <span className="font-mono text-[9px] uppercase tracking-[.18em] text-[var(--signal)]">
-              Daily Intelligence Brief
-            </span>
-            <span className="font-mono text-[9px] text-[var(--muted)] uppercase tracking-wide">
-              {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-            </span>
-          </div>
-          <h1 className="font-display text-4xl sm:text-5xl uppercase tracking-widest text-[var(--text-hi)] leading-none">
-            Today&apos;s Debates
-          </h1>
-          <hr className="signal mt-4" />
-          <p className="mt-3 text-sm text-[var(--muted)] font-body">
-            AI-gathered discussions on technology & science — both sides explained, human-verified.
-          </p>
-        </header>
+      <div className="flex flex-col gap-8">
+        {headerBlock}
         <SkeletonCard />
         <SkeletonCard />
         <SkeletonCard />
@@ -57,23 +61,7 @@ export function HomePage() {
 
   return (
     <div>
-      <header className="mb-8 border-b border-[var(--border)] pb-6">
-        <div className="flex items-center justify-between mb-3">
-          <span className="font-mono text-[9px] uppercase tracking-[.18em] text-[var(--signal)]">
-            Daily Intelligence Brief
-          </span>
-          <span className="font-mono text-[9px] text-[var(--muted)] uppercase tracking-wide">
-            {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-          </span>
-        </div>
-        <h1 className="font-display text-4xl sm:text-5xl uppercase tracking-widest text-[var(--text-hi)] leading-none">
-          Today&apos;s Debates
-        </h1>
-        <hr className="signal mt-4" />
-        <p className="mt-3 text-sm text-[var(--muted)] font-body">
-          Curated debates and AI-gathered news — both sides explained, human-verified where noted.
-        </p>
-      </header>
+      {headerBlock}
       {hasGdelt && <TopicExplainerBanner />}
       <WeeklyDebateBanner className="mb-8" />
       <div className="mb-8 -mx-4 sm:-mx-6 lg:hidden">

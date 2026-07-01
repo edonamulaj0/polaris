@@ -16,7 +16,8 @@
     "db:migrate:comments": "wrangler d1 execute polaris-db --remote --file=migrations/002_comments.sql",
     "db:migrate:comments:local": "wrangler d1 execute polaris-db --local --file=migrations/002_comments.sql",
     "db:migrate:tiers": "wrangler d1 execute polaris-db --remote --file=migrations/003_moderation_tiers.sql",
-    "db:migrate:tiers:local": "wrangler d1 execute polaris-db --local --file=migrations/003_moderation_tiers.sql"
+    "db:migrate:activity": "wrangler d1 execute polaris-db --remote --file=migrations/006_user_activity.sql",
+    "db:migrate:activity:local": "wrangler d1 execute polaris-db --local --file=migrations/006_user_activity.sql"
   },
   "dependencies": {
     "hono": "^4.6.0"

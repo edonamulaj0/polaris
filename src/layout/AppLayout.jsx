@@ -2,16 +2,17 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { AppNavbar } from '../components/AppNavbar'
-import { DesktopSidebar } from '../components/DesktopSidebar'
 import { MenuPanel } from '../components/MenuPanel'
 import { MobileBottomNav } from '../components/MobileBottomNav'
 import { NewDiscussionModal } from '../components/NewDiscussionModal'
 import { NotificationsPanel } from '../components/NotificationsPanel'
+import { ThemeShowcaseInset } from '../components/ThemeShowcaseInset'
 import { TrendingPanel } from '../components/TrendingPanel'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { useFeedStore } from '../stores/feedStore'
 import { useNotificationStore } from '../stores/notificationStore'
 import { useUserStore } from '../stores/userStore'
+import { useThemeStore } from '../stores/themeStore'
 
 export function AppLayout() {
   const location = useLocation()
@@ -26,7 +27,10 @@ export function AppLayout() {
   const googleSub = useUserStore((s) => s.googleSub)
   const googleIdToken = useUserStore((s) => s.googleIdToken)
   const initNotifications = useNotificationStore((s) => s.init)
+  const resolvedTheme = useThemeStore((s) => s.resolved)
   const isDesktopNav = useMediaQuery('(min-width: 768px)')
+  const isHome = location.pathname === '/'
+  const isExplore = location.pathname === '/explore'
 
   useEffect(() => {
     initNotifications()
@@ -38,8 +42,7 @@ export function AppLayout() {
   }, [isDesktopNav, menuOpen])
 
   const anyOverlay = notifOpen || (menuOpen && !isDesktopNav)
-
-  const isExplore = location.pathname === '/explore'
+  const showShowcase = isHome && resolvedTheme === 'dark'
 
   async function handleSubmitTopic(data) {
     setSubmitError('')
@@ -75,8 +78,7 @@ export function AppLayout() {
   }
 
   return (
-    <div className="flex min-h-svh flex-col bg-[var(--page)] pt-12">
-      <DesktopSidebar onNewDiscussion={() => setModalOpen(true)} />
+    <div className="flex min-h-svh flex-col bg-[var(--page)] pt-[4.25rem] lg:pt-[5rem]">
       <AppNavbar
         onOpenNotifications={() => {
           setMenuOpen(false)
@@ -89,11 +91,13 @@ export function AppLayout() {
         onNewDiscussion={() => setModalOpen(true)}
       />
 
-      <div className="flex min-w-0 flex-1 flex-col md:flex-row md:pl-[60px] xl:pl-[220px]">
+      {showShowcase && <ThemeShowcaseInset />}
+
+      <div className="flex min-w-0 flex-1 flex-col md:flex-row">
         <AnimatePresence mode="sync">
           <motion.main
             key={location.pathname}
-            className={`mx-auto w-full flex-1 px-4 py-6 sm:px-6 lg:px-10 ${isExplore ? 'max-w-6xl' : 'max-w-4xl'} ${anyOverlay ? '' : 'pb-[calc(4rem+env(safe-area-inset-bottom))]'} md:pb-12`}
+            className={`mx-auto w-full flex-1 px-4 py-6 sm:px-6 lg:px-10 ${isExplore ? 'max-w-6xl' : 'max-w-4xl'} ${anyOverlay ? '' : 'pb-[calc(4rem+env(safe-area-inset-bottom))]'} md:pb-12 ${showShowcase ? 'xl:pr-[320px] 2xl:pr-[340px]' : ''}`}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
@@ -105,7 +109,7 @@ export function AppLayout() {
 
         {!isExplore && (
           <div className="hidden w-[260px] shrink-0 py-6 pr-4 lg:block xl:w-[280px]">
-            <div className="sticky top-16">
+            <div className="sticky top-20">
               <TrendingPanel />
             </div>
           </div>

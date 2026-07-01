@@ -14,6 +14,7 @@ import {
   insertCommentFlags,
   issueStrike,
 } from '../lib/moderationHelpers';
+import { ensureDebateExists } from '../lib/ensureCuratedArticle';
 
 export const commentsRouter = new Hono<{ Bindings: Env }>();
 
@@ -126,7 +127,10 @@ commentsRouter.get('/:debateId/comments', async (c) => {
     .bind(debateId)
     .first();
   if (!article) {
-    return c.json({ error: 'not_found' }, 404);
+    const ensured = await ensureDebateExists(c.env.DB, debateId);
+    if (!ensured) {
+      return c.json({ error: 'not_found' }, 404);
+    }
   }
 
   let topLevelQuery = `
@@ -238,7 +242,10 @@ commentsRouter.post('/:debateId/comments', async (c) => {
     .bind(debateId)
     .first();
   if (!article) {
-    return c.json({ error: 'not_found' }, 404);
+    const ensured = await ensureDebateExists(c.env.DB, debateId);
+    if (!ensured) {
+      return c.json({ error: 'not_found' }, 404);
+    }
   }
 
   let parentId: string | null = body.parentId?.trim() || null;

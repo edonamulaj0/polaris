@@ -40,35 +40,34 @@ export function DiscussionCard({ post, variant = 'default' }) {
   )
   const toggleLike = useUserStore((s) => s.toggleDiscussionLike)
 
-  const metaPad = isExplore ? 'px-6 py-4' : 'px-4 py-2.5 sm:px-5 sm:pb-2.5'
-  const bodyPad = isExplore ? 'p-7 lg:p-8' : 'p-5 sm:p-6' // [UI P-1] increased card body padding
+  const metaPad = isExplore ? 'px-6 py-4' : 'px-5 py-3 sm:px-6'
+  const bodyPad = isExplore ? 'p-7 lg:p-8' : 'p-5 sm:p-6'
   const titleClass = isExplore
-    ? 'font-heading line-clamp-2 text-2xl leading-snug text-[var(--text-hi)] group-hover:text-[var(--signal)]'
-    : 'font-heading line-clamp-2 text-xl leading-tight text-[var(--text-hi)] group-hover:text-[var(--signal)]'
-  const likeBtnClass = 'h-12 w-12 shrink-0' // [UI P-1] enlarged touch target
+    ? 'font-heading line-clamp-2 text-2xl leading-snug text-[var(--text-hi)] group-hover:text-[var(--gold)] transition-colors'
+    : 'font-heading line-clamp-2 text-xl leading-tight text-[var(--text-hi)] group-hover:text-[var(--gold)] transition-colors'
 
   return (
     <motion.div variants={cardVariants} className="h-full">
-      <div className="flex h-full flex-col overflow-hidden rounded-none border border-[var(--border)] border-t-2 border-t-[var(--signal)] bg-[var(--surface)] shadow-[var(--shadow-card)] transition-[transform,box-shadow,border-color] duration-300 hover:border-t-[var(--signal)] hover:shadow-[var(--shadow-hover)]">
+      <div className="elevated elevated-hover flex h-full flex-col overflow-hidden rounded-3xl bg-[var(--surface)] transition-[transform,box-shadow] duration-300">
         <Link
           to={`/discussion/${post.id}`}
           className="group flex min-h-0 flex-1 flex-col outline-none"
         >
-          <div className={`flex flex-wrap items-center gap-2.5 border-b border-[var(--border)] ${metaPad}`}>
+          <div className={`flex flex-wrap items-center gap-2.5 ${metaPad}`}>
             {post.category && (
-              <span className="rounded-none bg-[var(--surface-hi)] px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide text-[var(--text-hi)] ring-1 ring-[var(--border)]">
+              <span className="rounded-full bg-[var(--surface-hi)] px-3 py-1 font-body text-[10px] font-semibold uppercase tracking-wide text-[var(--text-hi)] shadow-[var(--shadow-pill)]">
                 {post.category}
               </span>
             )}
             {post.verified && <VerifiedBadge />}
-            <span className="font-mono text-[10px] text-[var(--muted)]">
+            <span className="font-body text-[10px] text-[var(--muted)]">
               {formatSource(post.subreddit) || post.source}
             </span>
-            <span className="ml-auto font-mono text-[10px] text-[var(--muted)]">
+            <span className="ml-auto font-body text-[10px] text-[var(--muted)]">
               {formatTime(post.createdUtc)}
             </span>
           </div>
-          <div className={`relative w-full shrink-0 overflow-hidden bg-[var(--surface-hi)] ${isExplore ? 'aspect-[2/1] lg:aspect-[21/9]' : 'aspect-[16/9]'}`}>
+          <div className={`relative mx-4 overflow-hidden rounded-2xl bg-[var(--surface-hi)] sm:mx-5 ${isExplore ? 'aspect-[2/1] lg:aspect-[21/9]' : 'aspect-[16/9]'}`}>
             <img
               src={post.imageUrl || post.thumbnail || 'https://picsum.photos/seed/polaris/960/520'}
               alt=""
@@ -85,7 +84,7 @@ export function DiscussionCard({ post, variant = 'default' }) {
               <StanceBar distribution={dist} commentCount={isExplore ? null : post.num_comments} />
             </div>
             {!isExplore && (
-              <div className="mt-4 flex flex-wrap items-center gap-3 font-mono text-[10px] text-[var(--muted)]">
+              <div className="mt-4 flex flex-wrap items-center gap-3 font-body text-[10px] text-[var(--muted)]">
                 <span>💬 {post.num_comments ?? 0}</span>
                 <span>↑ {formatScore(post.score ?? 0)}</span>
                 <CivilityBadge value={post.civility ?? 70} />
@@ -94,7 +93,7 @@ export function DiscussionCard({ post, variant = 'default' }) {
           </div>
         </Link>
         <div
-          className="border-t border-[var(--border)] p-5 sm:p-6"
+          className="px-5 pb-5 pt-2 sm:px-6 sm:pb-6"
           onClick={(e) => e.stopPropagation()}
         >
           <VoteWidget
@@ -108,10 +107,10 @@ export function DiscussionCard({ post, variant = 'default' }) {
             <motion.button
               type="button"
               aria-label={liked ? 'Unlike' : 'Like discussion'}
-              className={`flex ${likeBtnClass} items-center justify-center rounded-none ring-1 transition-colors ${
+              className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors shadow-[var(--shadow-pill)] ${
                 liked
-                  ? 'bg-[var(--signal-muted)] text-[var(--signal)] ring-[var(--signal)]/40'
-                  : 'text-[var(--muted)] ring-[var(--border)] hover:text-[var(--text)]'
+                  ? 'bg-[var(--signal-muted)] text-[var(--gold)]'
+                  : 'bg-[var(--surface-hi)] text-[var(--muted)] hover:text-[var(--text)]'
               }`}
               onClick={(e) => {
                 e.preventDefault()

@@ -6,6 +6,7 @@ import type { Env } from '../types';
 import { verifyGoogleToken } from '../lib/auth';
 import { getVoteDistribution, syncArticleStanceCounts } from '../lib/voteHelpers';
 import { getUserModerationState } from '../lib/moderationHelpers';
+import { ensureDebateExists } from '../lib/ensureCuratedArticle';
 
 export const votesRouter = new Hono<{ Bindings: Env }>(); // [WRK-4]
 
@@ -43,11 +44,8 @@ votesRouter.post('/:id/vote', async (c) => {
     return c.json({ error: 'invalid_stance' }, 400); // [WRK-4]
   }
 
-  const article = await c.env.DB.prepare(`SELECT id FROM articles WHERE id = ?`)
-    .bind(articleId)
-    .first(); // [WRK-4]
-
-  if (!article) {
+  const exists = await ensureDebateExists(c.env.DB, articleId); // [WRK-4]
+  if (!exists) {
     return c.json({ error: 'article_not_found' }, 404); // [WRK-4]
   }
 

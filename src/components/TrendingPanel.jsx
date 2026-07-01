@@ -5,28 +5,27 @@ import { useFeedStore } from '../stores/feedStore'
 import { postMatchesTopic } from '../data/exploreTopics'
 import { formatSource } from '../lib/displayUtils'
 
-/** [EXP-3] category prop filters trending list to one topic */
 export function TrendingPanel({ category = null, posts: postsProp = null }) {
   const storePosts = useFeedStore((s) => (s.allPosts.length ? s.allPosts : s.posts))
   const posts = postsProp ?? storePosts
   const trending = useMemo(() => {
     return [...posts]
       .filter((p) => {
-        if (p.hidden || p.verified === false) return false // [WRK-6]
-        if (category === null) return true // [EXP-3]
-        return postMatchesTopic(p, category) // [EXP-3]
+        if (p.hidden || p.verified === false) return false
+        if (category === null) return true
+        return postMatchesTopic(p, category)
       })
       .sort((a, b) => (b.num_comments || 0) - (a.num_comments || 0))
       .slice(0, 8)
-  }, [posts, category]) // [EXP-3]
+  }, [posts, category])
 
   return (
-    <aside className="rounded-none border border-[var(--border)] bg-[var(--surface)] p-4">
-      <h2 className="font-display mb-2 text-sm uppercase tracking-widest text-[var(--text-hi)]">
+    <aside className="rounded-3xl bg-[var(--surface)] p-5 shadow-[var(--shadow-card)]">
+      <h2 className="font-heading mb-2 text-lg font-semibold tracking-wide text-[var(--text-hi)]">
         Trending
       </h2>
       <hr className="signal mb-4" />
-      <ol className="space-y-3">
+      <ol className="space-y-1">
         {trending.map((p, i) => (
           <TrendingRow key={p.id} rank={i + 1} post={p} comments={p.num_comments || 0} />
         ))}
@@ -36,7 +35,6 @@ export function TrendingPanel({ category = null, posts: postsProp = null }) {
 }
 
 function TrendingRow({ rank, post, comments }) {
-  // [REFACTOR U-5] Always init spring at 0 — effect animates to target on mount/update
   const spring = useSpring(0, { stiffness: 120, damping: 18 })
   const [label, setLabel] = useState(comments)
   useMotionValueEvent(spring, 'change', (v) => setLabel(Math.round(v)))
@@ -48,18 +46,18 @@ function TrendingRow({ rank, post, comments }) {
     <li>
       <Link
         to={`/discussion/${post.id}`}
-        className="flex gap-3 rounded-none p-2 transition-colors hover:bg-[var(--surface-hi)]"
+        className="flex gap-3 rounded-2xl p-2.5 transition-colors hover:bg-[var(--surface-hi)]"
       >
-        <span className="font-mono w-5 pt-0.5 text-sm text-[var(--signal)]">{rank}</span>
+        <span className="font-body w-5 pt-0.5 text-sm font-semibold text-[var(--gold)]">{rank}</span>
         <div className="min-w-0 flex-1">
           <p className="line-clamp-2 text-sm font-medium text-[var(--text)]">
             {post.title}
             {post.verified && (
-              <span className="ml-1.5 font-mono text-[9px] text-[var(--signal)]">• ✓</span>
+              <span className="ml-1.5 text-[9px] text-[var(--gold)]">• ✓</span>
             )}
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-[var(--muted)]">
-            <span className="rounded-none bg-[var(--surface-hi)] px-1.5 py-0.5">
+            <span className="rounded-full bg-[var(--surface-hi)] px-2 py-0.5">
               {formatSource(post.subreddit) || post.source}
             </span>
             <motion.span key={label}>{label}</motion.span>
