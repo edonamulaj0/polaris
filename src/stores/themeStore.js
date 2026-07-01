@@ -5,43 +5,32 @@ function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme)
 }
 
-function systemTheme() {
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-}
-
 export const useThemeStore = create(
   persist(
     (set, get) => ({
-      theme: 'system',
+      theme: 'dark',
       resolved: 'dark',
 
       init: () => {
-        const { theme } = get()
-        const resolved = theme === 'system' ? systemTheme() : theme
-        applyTheme(resolved)
-        set({ resolved })
-        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-          if (get().theme === 'system') {
-            const r = systemTheme()
-            applyTheme(r)
-            set({ resolved: r })
-          }
-        })
+        let { theme } = get()
+        if (theme === 'system') theme = 'dark'
+        applyTheme(theme)
+        set({ theme, resolved: theme })
       },
 
       setTheme: (theme) => {
-        const resolved = theme === 'system' ? systemTheme() : theme
-        applyTheme(resolved)
-        set({ theme, resolved })
+        applyTheme(theme)
+        set({ theme, resolved: theme })
       },
 
       toggle: () => {
-        const order = ['light', 'dark', 'system']
-        const current = get().theme
-        const next = order[(order.indexOf(current) + 1) % order.length]
+        const next = get().theme === 'dark' ? 'light' : 'dark'
         get().setTheme(next)
       },
     }),
-    { name: 'polaris-theme-v1', partialize: (s) => ({ theme: s.theme }) }
-  )
+    {
+      name: 'polaris-theme-v1',
+      partialize: (s) => ({ theme: s.theme === 'system' ? 'dark' : s.theme }),
+    },
+  ),
 )

@@ -7,7 +7,6 @@ import {
   IoCompassOutline,
   IoPersonOutline,
   IoInformationCircleOutline,
-  IoLockClosedOutline,
   IoAddOutline,
 } from 'react-icons/io5'
 import { motion } from 'framer-motion'
@@ -21,7 +20,6 @@ const navItems = [
   { to: '/explore', label: 'Explore', icon: IoCompassOutline },
   { to: '/profile/me', label: 'Profile', icon: IoPersonOutline },
   { to: '/about', label: 'About', icon: IoInformationCircleOutline },
-  { to: '/manager', label: 'Editor Panel', icon: IoLockClosedOutline },
 ]
 
 function NavPill({ to, end, label, icon: Icon }) {

@@ -3,6 +3,7 @@
 
 import type { D1Database } from '@cloudflare/workers-types';
 import { ensureDebateExists } from './ensureCuratedArticle';
+import { getSubscribedDebateIds } from './debateSubscriptions';
 
 const VALID_STANCES = ['For', 'Against', 'Neutral'] as const;
 const ACTIVITY_LIMIT = 200;
@@ -114,6 +115,7 @@ export async function getUserActivityData(db: D1Database, userId: string) {
     .first<{ n: number }>();
 
   const savedDebateIds = (savedRows ?? []).map((r) => r.articleId);
+  const subscribedDebateIds = await getSubscribedDebateIds(db, userId);
 
   const stanceHistory = (voteRows ?? []).map((r) => ({
     discussionId: r.discussionId,
@@ -147,6 +149,7 @@ export async function getUserActivityData(db: D1Database, userId: string) {
 
   return {
     savedDebateIds,
+    subscribedDebateIds,
     stanceHistory,
     commentHistory,
     activityFeed,

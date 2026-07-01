@@ -6,13 +6,17 @@ import { MenuPanel } from '../components/MenuPanel'
 import { MobileBottomNav } from '../components/MobileBottomNav'
 import { NewDiscussionModal } from '../components/NewDiscussionModal'
 import { NotificationsPanel } from '../components/NotificationsPanel'
-import { ThemeShowcaseInset } from '../components/ThemeShowcaseInset'
 import { TrendingPanel } from '../components/TrendingPanel'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { useFeedStore } from '../stores/feedStore'
 import { useNotificationStore } from '../stores/notificationStore'
 import { useUserStore } from '../stores/userStore'
-import { useThemeStore } from '../stores/themeStore'
+
+function mainMaxWidth(pathname) {
+  if (pathname === '/explore' || pathname === '/about') return 'max-w-6xl'
+  if (pathname.startsWith('/discussion/')) return 'max-w-5xl'
+  return 'max-w-6xl'
+}
 
 export function AppLayout() {
   const location = useLocation()
@@ -26,23 +30,31 @@ export function AppLayout() {
   const recordPostCreated = useUserStore((s) => s.recordPostCreated)
   const googleSub = useUserStore((s) => s.googleSub)
   const googleIdToken = useUserStore((s) => s.googleIdToken)
-  const initNotifications = useNotificationStore((s) => s.init)
-  const resolvedTheme = useThemeStore((s) => s.resolved)
+  const syncNotifications = useNotificationStore((s) => s.syncFromServer)
   const isDesktopNav = useMediaQuery('(min-width: 768px)')
-  const isHome = location.pathname === '/'
   const isExplore = location.pathname === '/explore'
+  const isAbout = location.pathname === '/about'
+  const showTrending = !isExplore && !isAbout
 
   useEffect(() => {
-    initNotifications()
-  }, [initNotifications])
+    void syncNotifications(googleIdToken)
+    if (!googleIdToken) return undefined
+    const interval = setInterval(() => {
+      void syncNotifications(googleIdToken)
+    }, 60_000)
+    return () => clearInterval(interval)
+  }, [googleIdToken, syncNotifications])
 
   useEffect(() => {
     if (!isDesktopNav || !menuOpen) return
     queueMicrotask(() => setMenuOpen(false))
   }, [isDesktopNav, menuOpen])
 
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [location.pathname])
+
   const anyOverlay = notifOpen || (menuOpen && !isDesktopNav)
-  const showShowcase = isHome && resolvedTheme === 'dark'
 
   async function handleSubmitTopic(data) {
     setSubmitError('')
@@ -91,13 +103,11 @@ export function AppLayout() {
         onNewDiscussion={() => setModalOpen(true)}
       />
 
-      {showShowcase && <ThemeShowcaseInset />}
-
       <div className="flex min-w-0 flex-1 flex-col md:flex-row">
         <AnimatePresence mode="sync">
           <motion.main
             key={location.pathname}
-            className={`mx-auto w-full flex-1 px-4 py-6 sm:px-6 lg:px-10 ${isExplore ? 'max-w-6xl' : 'max-w-4xl'} ${anyOverlay ? '' : 'pb-[calc(4rem+env(safe-area-inset-bottom))]'} md:pb-12 ${showShowcase ? 'xl:pr-[320px] 2xl:pr-[340px]' : ''}`}
+            className={`mx-auto w-full flex-1 px-4 py-6 sm:px-6 lg:px-8 ${mainMaxWidth(location.pathname)} ${anyOverlay ? '' : 'pb-[calc(4rem+env(safe-area-inset-bottom))]'} md:pb-12`}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
@@ -107,8 +117,8 @@ export function AppLayout() {
           </motion.main>
         </AnimatePresence>
 
-        {!isExplore && (
-          <div className="hidden w-[260px] shrink-0 py-6 pr-4 lg:block xl:w-[280px]">
+        {showTrending && (
+          <div className="hidden w-[240px] shrink-0 py-6 pr-4 xl:block xl:w-[260px]">
             <div className="sticky top-20">
               <TrendingPanel />
             </div>

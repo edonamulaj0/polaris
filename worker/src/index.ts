@@ -13,10 +13,29 @@ import { runIngest } from './jobs/ingest';
 
 const app = new Hono<{ Bindings: Env }>();
 
-app.use(
-  '*',
-  cors({ origin: '*', allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'] }),
-);
+const DEFAULT_ORIGINS = [
+  'https://polaris-a4m.pages.dev',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+];
+
+function allowedOrigins(env: Env): string[] {
+  const extra = env.ALLOWED_ORIGINS?.split(',').map((s) => s.trim()).filter(Boolean) ?? [];
+  return [...new Set([...DEFAULT_ORIGINS, ...extra])];
+}
+
+app.use('*', async (c, next) => {
+  const origins = allowedOrigins(c.env);
+  const middleware = cors({
+    origin: (origin) => {
+      if (!origin) return origins[0];
+      return origins.includes(origin) ? origin : null;
+    },
+    allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'Authorization', 'X-Editor-Session'],
+  });
+  return middleware(c, next);
+});
 
 app.get('/api/health', (c) => {
   return c.json({ ok: true, environment: c.env.ENVIRONMENT });

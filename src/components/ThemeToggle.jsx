@@ -1,21 +1,19 @@
-import { HiOutlineMoon, HiOutlineSun, HiOutlineDesktopComputer } from 'react-icons/hi'
+import { HiOutlineMoon, HiOutlineSun } from 'react-icons/hi'
 import { motion } from 'framer-motion'
 import { useThemeStore } from '../stores/themeStore'
 
 const icons = {
   light: HiOutlineSun,
   dark: HiOutlineMoon,
-  system: HiOutlineDesktopComputer,
 }
 
 const labels = {
-  light: 'Light theme',
-  dark: 'Dark theme',
-  system: 'System theme',
+  light: 'Switch to dark theme',
+  dark: 'Switch to light theme',
 }
 
 export function ThemeToggle({ className = '' }) {
-  const theme = useThemeStore((s) => s.theme)
+  const theme = useThemeStore((s) => s.resolved)
   const toggle = useThemeStore((s) => s.toggle)
   const Icon = icons[theme] || HiOutlineMoon
 

@@ -5,7 +5,6 @@ import {
   IoCompassOutline,
   IoPersonOutline,
   IoInformationCircleOutline,
-  IoLockClosedOutline,
 } from 'react-icons/io5'
 import { Link, NavLink } from 'react-router-dom'
 import { useScrollLock } from '../hooks/useScrollLock'
@@ -19,7 +18,6 @@ const navItems = [
   { to: '/explore', label: 'Explore', icon: IoCompassOutline },
   { to: '/profile/me', label: 'Profile', icon: IoPersonOutline },
   { to: '/about', label: 'About', icon: IoInformationCircleOutline },
-  { to: '/manager', label: 'Editor Panel', icon: IoLockClosedOutline },
 ]
 
 export function MenuPanel({ open, onClose }) {

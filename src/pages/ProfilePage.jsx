@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { AiFillHeart } from 'react-icons/ai'
 import { buildSavedDebates } from '../lib/resolveDiscussionMeta'
+import { fetchEditorStatus, registerEditor, resetEditorPin } from '../lib/editorApi'
 import { useFeedStore } from '../stores/feedStore'
 import { useUserStore } from '../stores/userStore'
 
@@ -56,6 +57,244 @@ function StatPill({ value, label }) {
       <span className="font-heading text-2xl font-semibold text-[var(--text-hi)]">{value}</span>
       <span className="font-mono text-[9px] uppercase tracking-[.14em] text-[var(--muted)]">{label}</span>
     </div>
+  )
+}
+
+function EditorAccessSection({ googleIdToken }) {
+  const [open, setOpen] = useState(false)
+  const [pin, setPin] = useState('')
+  const [confirmPin, setConfirmPin] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [isEditor, setIsEditor] = useState(null)
+  const [resetOpen, setResetOpen] = useState(false)
+  const [resetPin, setResetPin] = useState('')
+  const [resetConfirm, setResetConfirm] = useState('')
+  const [resetMsg, setResetMsg] = useState('')
+
+  useEffect(() => {
+    if (!googleIdToken) {
+      setIsEditor(false)
+      return
+    }
+    let cancelled = false
+    fetchEditorStatus(googleIdToken)
+      .then((data) => {
+        if (!cancelled) setIsEditor(Boolean(data.isEditor))
+      })
+      .catch(() => {
+        if (!cancelled) setIsEditor(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [googleIdToken])
+
+  async function handleRegister(e) {
+    e.preventDefault()
+    setError('')
+    if (pin.length !== 4 || !/^\d+$/.test(pin)) {
+      setError('PIN must be exactly 4 digits.')
+      return
+    }
+    if (pin !== confirmPin) {
+      setError('PINs do not match.')
+      return
+    }
+    setBusy(true)
+    const result = await registerEditor(googleIdToken, pin, confirmPin)
+    setBusy(false)
+    if (!result.ok) {
+      setError(result.message || 'Registration failed.')
+      return
+    }
+    setIsEditor(true)
+    setOpen(false)
+    setPin('')
+    setConfirmPin('')
+  }
+
+  async function handleResetPin(e) {
+    e.preventDefault()
+    setError('')
+    setResetMsg('')
+    if (resetPin.length !== 4 || !/^\d+$/.test(resetPin)) {
+      setError('PIN must be exactly 4 digits.')
+      return
+    }
+    if (resetPin !== resetConfirm) {
+      setError('PINs do not match.')
+      return
+    }
+    setBusy(true)
+    const result = await resetEditorPin(googleIdToken, resetPin, resetConfirm)
+    setBusy(false)
+    if (!result.ok) {
+      setError(result.message || 'Could not reset PIN.')
+      return
+    }
+    setResetOpen(false)
+    setResetPin('')
+    setResetConfirm('')
+    setResetMsg('PIN updated. Use the new PIN when opening the editor panel.')
+  }
+
+  if (isEditor === null) return null
+
+  return (
+    <section className="mt-12 border-t border-[var(--border)] pt-6">
+      <h2 className="font-mono text-[10px] uppercase tracking-[.15em] text-[var(--signal)]">
+        Editorial access
+      </h2>
+      {isEditor ? (
+        <div className="mt-4 border border-[var(--border)] bg-[var(--surface)] px-4 py-4">
+          <p className="text-sm text-[var(--muted)]">
+            You are registered as an editor. Open the editor panel to review submissions and moderate
+            flagged comments. You will be asked for your PIN each session.
+          </p>
+          <Link
+            to="/manager"
+            className="signal-glow-hover mt-4 inline-block bg-[var(--signal)] px-5 py-2.5 text-[10px] font-bold uppercase tracking-[.12em] text-[var(--signal-on)]"
+          >
+            Open editor panel
+          </Link>
+          {!resetOpen ? (
+            <button
+              type="button"
+              onClick={() => {
+                setResetOpen(true)
+                setError('')
+                setResetMsg('')
+              }}
+              className="mt-3 block text-xs text-[var(--muted)] underline-offset-2 hover:text-[var(--signal)] hover:underline"
+            >
+              Reset editor PIN
+            </button>
+          ) : (
+            <form onSubmit={handleResetPin} className="mt-4 max-w-sm space-y-3">
+              <p className="text-xs text-[var(--muted)]">
+                Set a new 4-digit PIN. Your Google sign-in must be active to reset it.
+              </p>
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                value={resetPin}
+                onChange={(e) => setResetPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                className="w-full border border-[var(--border)] bg-[var(--surface-hi)] px-3 py-2 font-mono text-lg tracking-[.4em] text-center text-[var(--text-hi)] outline-none focus:border-[var(--signal)]"
+                placeholder="New PIN"
+                disabled={busy}
+              />
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                value={resetConfirm}
+                onChange={(e) => setResetConfirm(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                className="w-full border border-[var(--border)] bg-[var(--surface-hi)] px-3 py-2 font-mono text-lg tracking-[.4em] text-center text-[var(--text-hi)] outline-none focus:border-[var(--signal)]"
+                placeholder="Confirm PIN"
+                disabled={busy}
+              />
+              {error && (
+                <p className="text-xs text-[var(--signal)]" role="alert">
+                  {error}
+                </p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="bg-[var(--signal)] px-4 py-2 text-[10px] font-bold uppercase tracking-[.1em] text-[var(--signal-on)] disabled:opacity-50"
+                >
+                  {busy ? 'Saving…' : 'Save new PIN'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResetOpen(false)
+                    setResetPin('')
+                    setResetConfirm('')
+                    setError('')
+                  }}
+                  className="px-4 py-2 text-[10px] font-mono uppercase tracking-wide text-[var(--muted)] hover:text-[var(--text)]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+          {resetMsg && <p className="mt-3 text-xs text-[var(--teal-calm)]">{resetMsg}</p>}
+        </div>
+      ) : (
+        <div className="mt-4">
+          {!open ? (
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              className="text-sm text-[var(--signal)] underline-offset-2 hover:underline"
+            >
+              Become an editor
+            </button>
+          ) : (
+            <form
+              onSubmit={handleRegister}
+              className="max-w-sm space-y-3 border border-[var(--border)] bg-[var(--surface)] px-4 py-4"
+            >
+              <p className="text-sm text-[var(--muted)]">
+                Choose a 4-digit PIN to protect the editor panel. It is stored securely on the server
+                and required along with your Google sign-in.
+              </p>
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                className="w-full border border-[var(--border)] bg-[var(--surface-hi)] px-3 py-2 font-mono text-lg tracking-[.4em] text-center text-[var(--text-hi)] outline-none focus:border-[var(--signal)]"
+                placeholder="PIN"
+                disabled={busy}
+              />
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                value={confirmPin}
+                onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                className="w-full border border-[var(--border)] bg-[var(--surface-hi)] px-3 py-2 font-mono text-lg tracking-[.4em] text-center text-[var(--text-hi)] outline-none focus:border-[var(--signal)]"
+                placeholder="Confirm PIN"
+                disabled={busy}
+              />
+              {error && (
+                <p className="text-xs text-[var(--signal)]" role="alert">
+                  {error}
+                </p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="bg-[var(--signal)] px-4 py-2 text-[10px] font-bold uppercase tracking-[.1em] text-[var(--signal-on)] disabled:opacity-50"
+                >
+                  {busy ? 'Registering…' : 'Register as editor'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false)
+                    setError('')
+                    setPin('')
+                    setConfirmPin('')
+                  }}
+                  className="px-4 py-2 text-[10px] font-mono uppercase tracking-wide text-[var(--muted)] hover:text-[var(--text)]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -433,6 +672,8 @@ export function ProfilePage() {
           )}
         </section>
       )}
+
+      {isOwn && googleIdToken && <EditorAccessSection googleIdToken={googleIdToken} />}
     </div>
   )
 }

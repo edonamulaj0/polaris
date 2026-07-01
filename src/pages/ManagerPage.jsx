@@ -4,61 +4,39 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { IoLockClosedOutline, IoCheckmarkCircleOutline, IoCloseCircleOutline, IoPencilOutline } from 'react-icons/io5'
 import { VerifiedBadge } from '../components/VerifiedBadge'
 import { ModerationPanel, useFlaggedCount } from '../components/editor/ModerationPanel'
-
-const MANAGER_PIN_KEY = 'polaris_mgr_pin'
-
-/** SHA-256 digest — never store plaintext PIN in localStorage */
-async function hashPin(pin) {
-  const data = new TextEncoder().encode(pin)
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-  return Array.from(new Uint8Array(hashBuffer))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
-}
+import {
+  editorFetch,
+  fetchEditorStatus,
+  getEditorSessionToken,
+  unlockEditor,
+} from '../lib/editorApi'
+import { useUserStore } from '../stores/userStore'
 
 function PinGate({ onUnlock }) {
+  const googleIdToken = useUserStore((s) => s.googleIdToken)
   const [input, setInput] = useState('')
-  const [mode, setMode] = useState(() =>
-    localStorage.getItem(MANAGER_PIN_KEY) ? 'enter' : 'create',
-  )
-  const [confirm, setConfirm] = useState('')
   const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-
-    if (mode === 'create') {
-      if (input.length !== 4 || !/^\d+$/.test(input)) {
-        setError('PIN must be exactly 4 digits.')
-        return
-      }
-      if (input !== confirm) {
-        setError('PINs do not match.')
-        return
-      }
-      const digest = await hashPin(input)
-      localStorage.setItem(MANAGER_PIN_KEY, digest)
-      onUnlock('Editor')
+    if (!googleIdToken) {
+      setError('Sign in with Google first.')
       return
     }
-
-    const stored = localStorage.getItem(MANAGER_PIN_KEY)
-    const digest = await hashPin(input)
-    if (digest !== stored) {
-      setError('Incorrect PIN.')
+    if (input.length !== 4 || !/^\d+$/.test(input)) {
+      setError('PIN must be exactly 4 digits.')
       return
     }
-
-    onUnlock('Editor')
-  }
-
-  function resetSetup() {
-    localStorage.removeItem(MANAGER_PIN_KEY)
-    setMode('create')
-    setInput('')
-    setConfirm('')
-    setError('')
+    setBusy(true)
+    const result = await unlockEditor(googleIdToken, input)
+    setBusy(false)
+    if (!result.ok) {
+      setError(result.message || 'Incorrect PIN.')
+      return
+    }
+    onUnlock()
   }
 
   return (
@@ -71,9 +49,7 @@ function PinGate({ onUnlock }) {
       </div>
       <hr className="signal mb-6" />
       <p className="font-mono text-[10px] uppercase tracking-widest text-[var(--muted)] mb-4">
-        {mode === 'create'
-          ? 'Create a 4-digit PIN to access the demo editor panel'
-          : 'Enter your PIN to continue'}
+        Enter your 4-digit editor PIN to continue
       </p>
       <form onSubmit={handleSubmit} className="space-y-3">
         <input
@@ -85,39 +61,49 @@ function PinGate({ onUnlock }) {
           className="w-full rounded-none border border-[var(--border)] bg-[var(--surface-hi)] px-4 py-3 font-mono text-xl tracking-[.5em] text-center text-[var(--text-hi)] outline-none focus:border-[var(--signal)]"
           placeholder="• • • •"
           autoFocus
+          disabled={busy}
         />
-        {mode === 'create' && (
-          <input
-            type="password"
-            inputMode="numeric"
-            maxLength={4}
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value.replace(/\D/g, '').slice(0, 4))}
-            className="w-full rounded-none border border-[var(--border)] bg-[var(--surface-hi)] px-4 py-3 font-mono text-xl tracking-[.5em] text-center text-[var(--text-hi)] outline-none focus:border-[var(--signal)]"
-            placeholder="Confirm PIN"
-          />
-        )}
         {error && (
           <p className="font-mono text-[10px] text-[var(--signal)] uppercase tracking-wide">{error}</p>
         )}
         <motion.button
           type="submit"
-          className="signal-glow-hover w-full bg-[var(--signal)] py-3 text-[11px] font-bold uppercase tracking-[.12em] text-[var(--signal-on)]"
+          disabled={busy}
+          className="signal-glow-hover w-full bg-[var(--signal)] py-3 text-[11px] font-bold uppercase tracking-[.12em] text-[var(--signal-on)] disabled:opacity-50"
           whileHover={{ scale: 1.01 }}
           whileTap={{ scale: 0.98 }}
         >
-          {mode === 'create' ? 'Create PIN & Enter' : 'Unlock'}
+          {busy ? 'Unlocking…' : 'Unlock'}
         </motion.button>
-        {mode === 'enter' && (
-          <button
-            type="button"
-            onClick={resetSetup}
-            className="w-full text-[9px] font-mono uppercase tracking-wide text-[var(--muted)] hover:text-[var(--signal)]"
-          >
-            Reset PIN
-          </button>
-        )}
       </form>
+      <p className="mt-4 text-center text-xs text-[var(--muted)]">
+        Not registered yet?{' '}
+        <Link to="/profile/me" className="text-[var(--signal)] hover:underline">
+          Become an editor
+        </Link>{' '}
+        on your profile.
+      </p>
+    </div>
+  )
+}
+
+function NotEditorGate() {
+  return (
+    <div className="mx-auto mt-20 max-w-md text-center">
+      <IoLockClosedOutline className="mx-auto h-8 w-8 text-[var(--signal)]" />
+      <h1 className="mt-4 font-display text-2xl text-[var(--text-hi)] uppercase tracking-widest">
+        Editor access required
+      </h1>
+      <p className="mt-3 text-sm text-[var(--muted)]">
+        The editor panel is not in the main navigation. Register from your profile to review submissions
+        and moderate flagged comments.
+      </p>
+      <Link
+        to="/profile/me"
+        className="signal-glow-hover mt-6 inline-block bg-[var(--signal)] px-6 py-3 text-[11px] font-bold uppercase tracking-[.12em] text-[var(--signal-on)]"
+      >
+        Become an editor
+      </Link>
     </div>
   )
 }
@@ -273,8 +259,11 @@ function ArticleReviewCard({ post, onApprove, onReject, onUpdateBullets, busy })
 }
 
 export function ManagerPage() {
-  const [pinUnlocked, setPinUnlocked] = useState(false)
-  const [editorName, setEditorName] = useState('')
+  const googleSub = useUserStore((s) => s.googleSub)
+  const googleIdToken = useUserStore((s) => s.googleIdToken)
+  const editorName = useUserStore((s) => s.name) || 'Editor'
+  const [pinUnlocked, setPinUnlocked] = useState(() => Boolean(getEditorSessionToken()))
+  const [isEditor, setIsEditor] = useState(null)
   const [panel, setPanel] = useState('queue')
   const [filter, setFilter] = useState('pending')
   const [articles, setArticles] = useState([])
@@ -283,11 +272,33 @@ export function ManagerPage() {
   const [busyId, setBusyId] = useState(null)
   const [error, setError] = useState('')
 
+  useEffect(() => {
+    if (!googleSub || !googleIdToken) {
+      setIsEditor(false)
+      return
+    }
+    let cancelled = false
+    fetchEditorStatus(googleIdToken)
+      .then((data) => {
+        if (!cancelled) setIsEditor(Boolean(data.isEditor))
+      })
+      .catch(() => {
+        if (!cancelled) setIsEditor(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [googleSub, googleIdToken])
+
   const loadQueue = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch(`/api/editor/articles?filter=${filter}`)
+      const res = await editorFetch(`/api/editor/articles?filter=${filter}`)
+      if (res.status === 401) {
+        setPinUnlocked(false)
+        throw new Error('session_expired')
+      }
       if (!res.ok) throw new Error('fetch_failed')
       const data = await res.json()
       setArticles(data.articles || [])
@@ -308,11 +319,15 @@ export function ManagerPage() {
   async function patchArticle(id, body) {
     setBusyId(id)
     try {
-      const res = await fetch(`/api/editor/articles/${encodeURIComponent(id)}`, {
+      const res = await editorFetch(`/api/editor/articles/${encodeURIComponent(id)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
+      if (res.status === 401) {
+        setPinUnlocked(false)
+        throw new Error('session_expired')
+      }
       if (!res.ok) throw new Error('patch_failed')
       await loadQueue()
     } catch {
@@ -346,15 +361,28 @@ export function ManagerPage() {
 
   const flaggedCount = useFlaggedCount(pinUnlocked)
 
-  if (!pinUnlocked) {
+  if (!googleSub) {
     return (
-      <PinGate
-        onUnlock={(name) => {
-          setEditorName(name)
-          setPinUnlocked(true)
-        }}
-      />
+      <div className="mx-auto mt-20 max-w-md text-center">
+        <p className="text-sm text-[var(--muted)]">Sign in with Google to access the editor panel.</p>
+      </div>
     )
+  }
+
+  if (isEditor === null) {
+    return (
+      <p className="py-16 text-center font-mono text-[10px] uppercase tracking-widest text-[var(--muted)]">
+        Loading…
+      </p>
+    )
+  }
+
+  if (!isEditor) {
+    return <NotEditorGate />
+  }
+
+  if (!pinUnlocked) {
+    return <PinGate onUnlock={() => setPinUnlocked(true)} />
   }
 
   return (

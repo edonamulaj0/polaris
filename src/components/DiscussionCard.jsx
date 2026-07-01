@@ -1,12 +1,10 @@
 import { motion } from 'framer-motion'
-import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { AiFillHeart, AiOutlineHeart } from 'react-icons/ai'
+import { DebateSaveSubscribe } from './DebateSaveSubscribe'
 import { CivilityBadge } from './CivilityBadge'
 import { StanceBar } from './StanceBar'
 import { VerifiedBadge } from './VerifiedBadge'
 import { VoteWidget } from './VoteWidget'
-import { useUserStore } from '../stores/userStore'
 import { formatSource } from '../lib/displayUtils'
 
 const cardVariants = {
@@ -33,12 +31,6 @@ function formatScore(n) {
 export function DiscussionCard({ post, variant = 'default' }) {
   const isExplore = variant === 'explore'
   const dist = post.stanceDistribution || { for: 33, against: 34, neutral: 33 }
-  const likedIds = useUserStore((s) => s.likedDiscussionIds)
-  const liked = useMemo(
-    () => (Array.isArray(likedIds) ? likedIds : []).includes(post.id),
-    [likedIds, post.id],
-  )
-  const toggleLike = useUserStore((s) => s.toggleDiscussionLike)
 
   const metaPad = isExplore ? 'px-6 py-4' : 'px-5 py-3 sm:px-6'
   const bodyPad = isExplore ? 'p-7 lg:p-8' : 'p-5 sm:p-6'
@@ -103,24 +95,7 @@ export function DiscussionCard({ post, variant = 'default' }) {
             category={post.category}
             stanceDistribution={dist}
           />
-          <div className="mt-4 flex justify-end">
-            <motion.button
-              type="button"
-              aria-label={liked ? 'Unlike' : 'Like discussion'}
-              className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors shadow-[var(--shadow-pill)] ${
-                liked
-                  ? 'bg-[var(--signal-muted)] text-[var(--gold)]'
-                  : 'bg-[var(--surface-hi)] text-[var(--muted)] hover:text-[var(--text)]'
-              }`}
-              onClick={(e) => {
-                e.preventDefault()
-                toggleLike(post.id, post.title)
-              }}
-              whileTap={{ scale: 0.92 }}
-            >
-              {liked ? <AiFillHeart className="h-5 w-5" /> : <AiOutlineHeart className="h-5 w-5" />}
-            </motion.button>
-          </div>
+          <DebateSaveSubscribe discussionId={post.id} title={post.title} className="mt-4" />
         </div>
       </div>
     </motion.div>

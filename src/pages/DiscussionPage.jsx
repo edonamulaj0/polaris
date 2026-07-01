@@ -3,6 +3,7 @@ import { useLayoutEffect, useMemo, useState, useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { CommentSection } from '../components/CommentSection'
 import { CivilityBadge } from '../components/CivilityBadge'
+import { DebateSaveSubscribe } from '../components/DebateSaveSubscribe'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { StanceBar } from '../components/StanceBar'
 import { VerifiedBadge } from '../components/VerifiedBadge'
@@ -248,11 +249,12 @@ function DiscussionPageInner({ id }) {
             </span>
           )}
           <CivilityBadge value={post.civility ?? 70} />
-          <span className="ml-auto font-mono text-[10px] text-[var(--muted)]">
+          <DebateSaveSubscribe discussionId={post.id} title={post.title} className="ml-auto" />
+          <span className="font-mono text-[10px] text-[var(--muted)] sm:ml-0">
             ↑ {formatScore(post.score)} · 💬 {post.num_comments ?? 0}
           </span>
         </div>
-        <div className="mt-6 max-w-2xl">
+        <div className="mt-6 w-full">
           <StanceBar distribution={post.stanceDistribution} commentCount={post.num_comments} />
         </div>
       </header>

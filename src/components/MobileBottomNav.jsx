@@ -4,7 +4,6 @@ import {
   IoCompassOutline,
   IoPersonOutline,
   IoInformationCircleOutline,
-  IoLockClosedOutline,
 } from 'react-icons/io5'
 
 const base =
@@ -16,7 +15,6 @@ export function MobileBottomNav() {
     { to: '/explore', label: 'Explore', icon: IoCompassOutline },
     { to: '/profile/me', label: 'Profile', icon: IoPersonOutline },
     { to: '/about', label: 'About', icon: IoInformationCircleOutline },
-    { to: '/manager', label: 'Editor', icon: IoLockClosedOutline },
   ]
 
   return (

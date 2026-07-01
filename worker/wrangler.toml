@@ -24,6 +24,7 @@ crons = ["0 */6 * * *"]
 #   npx wrangler secret put GOOGLE_CLIENT_ID
 #   npx wrangler secret put GEMINI_API_KEY
 #   npx wrangler secret put ANTHROPIC_API_KEY
+#   npx wrangler secret put EDITOR_SESSION_SECRET
 
 # Optional email binding for ban notifications:
 # [[send_email]]

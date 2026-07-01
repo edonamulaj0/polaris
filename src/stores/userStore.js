@@ -17,6 +17,8 @@ import {
   saveDebate,
   syncActivityToServer,
   unsaveDebate,
+  subscribeDebate,
+  unsubscribeDebate,
 } from '../services/userActivityApi'
 
 const emptyStats = () => ({
@@ -79,6 +81,7 @@ export const useUserStore = create(
       /** @type {{ id: string; type: string; title?: string; at: number; detail?: string }[]} */
       activityFeed: [],
       likedDiscussionIds: [],
+      subscribedDiscussionIds: [],
       /** True once server activity has been loaded for the current session */
       activitySynced: false,
 
@@ -168,11 +171,16 @@ export const useUserStore = create(
 
         void (async () => {
           try {
-            await fetch('/api/users', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ sub, email, name }),
-            })
+            const token = typeof idToken === 'string' ? idToken : get().googleIdToken
+            if (token?.trim()) {
+              await fetch('/api/users', {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+              })
+            }
           } catch {
             /* upsert best-effort */
           }
@@ -214,17 +222,25 @@ export const useUserStore = create(
         }
 
         const sub = get().googleSub
+        const token = get().googleIdToken
         if (!sub) {
           set({ birthDate: trimmed, age: computed, birthLocked: true })
           return { ok: true }
         }
 
+        if (!token?.trim()) {
+          return { ok: false, error: 'unauthorized' }
+        }
+
         try {
-          const res = await fetch(`/api/users/${encodeURIComponent(sub)}/birthday`, {
+          const res = await fetch('/api/users/me/birthday', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
             body: JSON.stringify({ birthDate: trimmed }),
-          }) // [FE-2]
+          })
 
           if (res.ok) {
             set({ birthDate: trimmed, age: computed, birthLocked: true }) // [FE-2]
@@ -329,41 +345,54 @@ export const useUserStore = create(
 
       recordStance: async ({ discussionId, title, category, stance }) => {
         const at = Date.now()
-        const h = { discussionId, stance, category: category || CATEGORIES[0], title, at }
-        set({
-          stanceHistory: [h, ...get().stanceHistory.filter((s) => s.discussionId !== discussionId)].slice(
-            0,
-            400,
-          ),
-          joinedDiscussionIds: Array.from(
-            new Set([discussionId, ...get().joinedDiscussionIds]),
-          ),
-          activityFeed: [
-            {
-              id: `a-${Date.now()}`,
-              type: 'stance',
-              title: title || 'Discussion',
-              at,
-              detail: stance,
-            },
-            ...get().activityFeed,
-          ].slice(0, 200),
-        })
-
         const token = get().googleIdToken
-        if (!token?.trim()) return
+        if (!token?.trim()) {
+          return { ok: false, error: 'unauthorized', message: 'Sign in to vote.' }
+        }
 
         try {
-          await postVote(token, discussionId, stance)
+          const data = await postVote(token, discussionId, stance)
+          const h = {
+            discussionId,
+            stance: data.stance ?? stance,
+            category: category || CATEGORIES[0],
+            title,
+            at,
+          }
+          set({
+            stanceHistory: [h, ...get().stanceHistory.filter((s) => s.discussionId !== discussionId)].slice(
+              0,
+              400,
+            ),
+            joinedDiscussionIds: Array.from(
+              new Set([discussionId, ...get().joinedDiscussionIds]),
+            ),
+            activityFeed: [
+              {
+                id: `a-${Date.now()}`,
+                type: 'stance',
+                title: title || 'Discussion',
+                at,
+                detail: h.stance,
+              },
+              ...get().activityFeed,
+            ].slice(0, 200),
+          })
           void get()._persistActivity({
             type: 'stance',
             title,
-            detail: stance,
+            detail: h.stance,
             discussionId,
             at,
           })
-        } catch {
+          return { ok: true, stance: h.stance, distribution: data.distribution }
+        } catch (err) {
           await get().syncAccountFromServer()
+          const message =
+            err?.code === 'social_banned'
+              ? 'Your account cannot vote due to a community guidelines violation.'
+              : 'Could not save your vote.'
+          return { ok: false, error: err?.code || 'vote_failed', message }
         }
       },
 
@@ -437,6 +466,37 @@ export const useUserStore = create(
       },
 
       isDiscussionLiked: (discussionId) => (get().likedDiscussionIds ?? []).includes(discussionId),
+
+      toggleDiscussionSubscribe: async (discussionId, title) => {
+        const token = get().googleIdToken
+        if (!token?.trim()) return { ok: false, error: 'sign_in_required' }
+
+        const cur = new Set(get().subscribedDiscussionIds ?? [])
+        const wasSubscribed = cur.has(discussionId)
+
+        if (wasSubscribed) {
+          cur.delete(discussionId)
+          set({ subscribedDiscussionIds: [...cur] })
+        } else {
+          cur.add(discussionId)
+          set({ subscribedDiscussionIds: [...cur] })
+        }
+
+        try {
+          if (wasSubscribed) {
+            await unsubscribeDebate(token, discussionId)
+          } else {
+            await subscribeDebate(token, discussionId)
+          }
+          return { ok: true, subscribed: !wasSubscribed }
+        } catch {
+          await get().syncAccountFromServer()
+          return { ok: false, error: 'sync_failed' }
+        }
+      },
+
+      isDiscussionSubscribed: (discussionId) =>
+        (get().subscribedDiscussionIds ?? []).includes(discussionId),
 
       categoryEngagement: () => {
         const counts = Object.fromEntries(CATEGORIES.map((c) => [c, 0])) // [CAT-1]

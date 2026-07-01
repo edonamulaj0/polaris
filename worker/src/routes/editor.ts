@@ -1,16 +1,18 @@
 // worker/src/routes/editor.ts
-// [WRK-6] Editor panel — demo queue (PIN-gated in the client only)
+// Editor panel — server-authenticated (Google token + editor session)
 
 import { Hono } from 'hono';
-import type { Env, ArticleRow } from '../types';
+import type { ArticleRow } from '../types';
 import type { CommentFlagRow, CommentRow } from '../types/moderation';
 import { rowToPublic } from '../lib/articleHelpers';
+import { createNotification } from '../lib/notifications';
 import {
   generateId,
   getUserModerationState,
   issueStrike,
   recalculateModerationState,
 } from '../lib/moderationHelpers';
+import { requireEditorMiddleware, type EditorContext } from '../lib/requireEditor';
 
 const FLAG_LABELS: Record<string, string> = {
   offensive: 'Offensive content',
@@ -25,7 +27,9 @@ function flagLabel(type: string): string {
   return FLAG_LABELS[type] ?? type;
 }
 
-export const editorRouter = new Hono<{ Bindings: Env }>();
+export const editorRouter = new Hono<EditorContext>();
+
+editorRouter.use('*', requireEditorMiddleware);
 
 editorRouter.get('/articles', async (c) => {
   const filter = c.req.query('filter') || 'pending';
@@ -117,6 +121,24 @@ editorRouter.patch('/articles/:id', async (c) => {
   const updated = await c.env.DB.prepare(`SELECT * FROM articles WHERE id = ?`)
     .bind(id)
     .first<ArticleRow>();
+
+  if (updated?.submitted_by) {
+    if (body.verified === true) {
+      await createNotification(c.env.DB, updated.submitted_by, {
+        type: 'topic',
+        title: 'Your topic was approved',
+        body: `"${updated.title}" is now live in the public feed.`,
+        discussionId: id,
+      });
+    } else if (body.hidden === true) {
+      await createNotification(c.env.DB, updated.submitted_by, {
+        type: 'topic',
+        title: 'Your topic was not published',
+        body: `"${updated.title}" was hidden by an editor and will not appear in the feed.`,
+        discussionId: id,
+      });
+    }
+  }
 
   return c.json(rowToPublic(updated!, { includeEditorFields: true }));
 });
@@ -259,6 +281,12 @@ editorRouter.post('/comments/:commentId/action', async (c) => {
       'Comment deleted by editor.',
       'editor',
     );
+    await createNotification(c.env.DB, row.user_id, {
+      type: 'moderation',
+      title: 'Comment removed by an editor',
+      body: 'Your comment was deleted after review. A strike may have been applied to your account.',
+      discussionId: row.debate_id,
+    });
   } else if (normalizedAction === 'clear') {
     newStatus = 'visible';
     await c.env.DB.batch([
@@ -269,6 +297,12 @@ editorRouter.post('/comments/:commentId/action', async (c) => {
         `UPDATE comment_flags SET resolved_by = ?, resolved_action = 'cleared', resolved_at = ? WHERE comment_id = ? AND resolved_at IS NULL`,
       ).bind(editorId, now, commentId),
     ]);
+    await createNotification(c.env.DB, row.user_id, {
+      type: 'moderation',
+      title: 'Comment approved',
+      body: 'Your flagged comment was reviewed and is visible again.',
+      discussionId: row.debate_id,
+    });
   } else if (normalizedAction === 'false_positive') {
     newStatus = 'visible';
     await c.env.DB.batch([
@@ -279,6 +313,12 @@ editorRouter.post('/comments/:commentId/action', async (c) => {
         `UPDATE comment_flags SET resolved_by = ?, resolved_action = 'false_positive', resolved_at = ? WHERE comment_id = ? AND resolved_at IS NULL`,
       ).bind(editorId, now, commentId),
     ]);
+    await createNotification(c.env.DB, row.user_id, {
+      type: 'moderation',
+      title: 'Comment cleared',
+      body: 'An editor marked your comment as a false positive — it is visible again.',
+      discussionId: row.debate_id,
+    });
   }
 
   return c.json({ success: true, newStatus });

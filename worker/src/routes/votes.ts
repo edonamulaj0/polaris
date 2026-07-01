@@ -3,7 +3,7 @@
 
 import { Hono } from 'hono';
 import type { Env } from '../types';
-import { verifyGoogleToken } from '../lib/auth';
+import { extractBearerToken, verifyGoogleToken } from '../lib/auth';
 import { getVoteDistribution, syncArticleStanceCounts } from '../lib/voteHelpers';
 import { getUserModerationState } from '../lib/moderationHelpers';
 import { ensureDebateExists } from '../lib/ensureCuratedArticle';
@@ -81,6 +81,22 @@ votesRouter.get('/:id/votes', async (c) => {
 
   const voteCounts = await getVoteDistribution(c.env.DB, articleId); // [WRK-4]
 
+  let userStance: string | null = null;
+  const token = extractBearerToken(c.req.header('Authorization'));
+  if (token) {
+    try {
+      const googleUser = await verifyGoogleToken(token, c.env);
+      const voteRow = await c.env.DB.prepare(
+        `SELECT stance FROM votes WHERE user_id = ? AND article_id = ?`,
+      )
+        .bind(googleUser.sub, articleId)
+        .first<{ stance: string }>();
+      userStance = voteRow?.stance ?? null;
+    } catch {
+      /* optional auth */
+    }
+  }
+
   if (voteCounts.total > 0) {
     return c.json({
       distribution: {
@@ -89,6 +105,7 @@ votesRouter.get('/:id/votes', async (c) => {
         neutral: voteCounts.neutral, // [WRK-4]
       },
       total: voteCounts.total, // [WRK-4]
+      userStance,
     });
   }
 
@@ -99,5 +116,6 @@ votesRouter.get('/:id/votes', async (c) => {
       neutral: article.stance_neutral, // [WRK-4]
     },
     total: 0, // [WRK-4]
+    userStance,
   });
 });

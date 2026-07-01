@@ -52,6 +52,26 @@ export async function unsaveDebate(token, articleId) {
   return res.json()
 }
 
+/** @returns {Promise<{ subscribed: boolean, articleId: string }>} */
+export async function subscribeDebate(token, articleId) {
+  const res = await fetch(`/api/users/me/subscriptions/${encodeURIComponent(articleId)}`, {
+    method: 'POST',
+    headers: authHeaders(token),
+  })
+  if (!res.ok) throw new Error('subscribe_failed')
+  return res.json()
+}
+
+/** @returns {Promise<{ subscribed: boolean, articleId: string }>} */
+export async function unsubscribeDebate(token, articleId) {
+  const res = await fetch(`/api/users/me/subscriptions/${encodeURIComponent(articleId)}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  })
+  if (!res.ok) throw new Error('unsubscribe_failed')
+  return res.json()
+}
+
 /** @returns {Promise<{ id: string }>} */
 export async function postActivity(token, entry) {
   const res = await fetch('/api/users/me/activity', {
@@ -83,6 +103,7 @@ export async function postVote(token, articleId, stance) {
 export function applyActivityDataToStore(data) {
   return {
     likedDiscussionIds: data.savedDebateIds ?? [],
+    subscribedDiscussionIds: data.subscribedDebateIds ?? [],
     stanceHistory: data.stanceHistory ?? [],
     commentHistory: data.commentHistory ?? [],
     activityFeed: (data.activityFeed ?? []).map((a) => ({

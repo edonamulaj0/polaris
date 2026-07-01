@@ -8,6 +8,7 @@ import {
   IoTrashOutline,
 } from 'react-icons/io5';
 import type { FlaggedCommentItem, FlagType } from '../../types/moderation';
+import { editorFetch } from '../../lib/editorApi';
 
 const FLAG_COLORS: Record<FlagType, string> = {
   offensive: 'bg-red-500/20 text-red-400 border-red-500/40',
@@ -33,7 +34,7 @@ function truncate(text: string, max: number) {
 }
 
 async function fetchFlagged() {
-  const res = await fetch('/api/editor/comments/flagged?limit=50');
+  const res = await editorFetch('/api/editor/comments/flagged?limit=50');
   if (!res.ok) throw new Error('Failed to load flagged comments');
   return res.json() as Promise<{
     items: FlaggedCommentItem[];
@@ -43,7 +44,7 @@ async function fetchFlagged() {
 }
 
 async function fetchContext(commentId: string) {
-  const res = await fetch(`/api/editor/comments/${encodeURIComponent(commentId)}/context`);
+  const res = await editorFetch(`/api/editor/comments/${encodeURIComponent(commentId)}/context`);
   if (!res.ok) throw new Error('Failed to load context');
   return res.json();
 }
@@ -52,7 +53,7 @@ async function postAction(
   commentId: string,
   action: 'delete' | 'clear' | 'false_positive' | 'approve' | 'permanently_delete',
 ) {
-  const res = await fetch(`/api/editor/comments/${encodeURIComponent(commentId)}/action`, {
+  const res = await editorFetch(`/api/editor/comments/${encodeURIComponent(commentId)}/action`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action }),
@@ -406,7 +407,7 @@ function ViolationHistoryModal({
   const { data, isLoading } = useQuery({
     queryKey: ['editor-violations', userId],
     queryFn: async () => {
-      const res = await fetch(`/api/editor/users/${encodeURIComponent(userId)}/violations`);
+      const res = await editorFetch(`/api/editor/users/${encodeURIComponent(userId)}/violations`);
       if (!res.ok) throw new Error('Failed to load violations');
       return res.json();
     },
@@ -486,7 +487,7 @@ function StrikeHistoryModal({
   const { data, isLoading } = useQuery({
     queryKey: ['editor-strikes', userId],
     queryFn: async () => {
-      const res = await fetch(`/api/editor/users/${encodeURIComponent(userId)}/strikes`);
+      const res = await editorFetch(`/api/editor/users/${encodeURIComponent(userId)}/strikes`);
       if (!res.ok) throw new Error('Failed to load strikes');
       return res.json();
     },
@@ -494,7 +495,7 @@ function StrikeHistoryModal({
 
   const pardonMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/editor/users/${encodeURIComponent(userId)}/pardon`, {
+      const res = await editorFetch(`/api/editor/users/${encodeURIComponent(userId)}/pardon`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: 'Editor pardon' }),
@@ -574,7 +575,7 @@ export function useFlaggedCount(enabled = true) {
   const { data } = useQuery({
     queryKey: ['editor-flagged-count'],
     queryFn: async () => {
-      const res = await fetch('/api/editor/comments/flagged?limit=1');
+      const res = await editorFetch('/api/editor/comments/flagged?limit=1');
       if (!res.ok) return 0;
       const json = await res.json();
       return json.flaggedCount as number;

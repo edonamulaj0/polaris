@@ -15,6 +15,8 @@ import {
   issueStrike,
 } from '../lib/moderationHelpers';
 import { ensureDebateExists } from '../lib/ensureCuratedArticle';
+import { createNotification } from '../lib/notifications';
+import { notifyDebateSubscribers } from '../lib/debateSubscriptions';
 
 export const commentsRouter = new Hono<{ Bindings: Env }>();
 
@@ -107,6 +109,7 @@ function rowToPublic(
 }
 
 commentsRouter.get('/:debateId/comments', async (c) => {
+  try {
   const debateId = c.req.param('debateId');
   const cursor = c.req.query('cursor');
   const limitRaw = parseInt(c.req.query('limit') || '20', 10);
@@ -192,9 +195,14 @@ commentsRouter.get('/:debateId/comments', async (c) => {
     hasMore && topSlice.length > 0 ? topSlice[topSlice.length - 1].id : null;
 
   return c.json({ comments, nextCursor });
+  } catch (err) {
+    console.error('GET comments failed:', err);
+    return c.json({ error: 'internal_error', message: 'Could not load comments.' }, 500);
+  }
 });
 
 commentsRouter.post('/:debateId/comments', async (c) => {
+  try {
   const auth = await requireGoogleUser(c);
   if ('error' in auth && auth.error) return auth.error;
   const { user } = auth;
@@ -275,9 +283,36 @@ commentsRouter.post('/:debateId/comments', async (c) => {
     .bind(commentId, debateId, user.sub, parentId, text, now)
     .run();
 
+  if (parentId) {
+    const parent = await c.env.DB.prepare(
+      `SELECT user_id FROM comments WHERE id = ? AND deleted_at IS NULL`,
+    )
+      .bind(parentId)
+      .first<{ user_id: string }>();
+    if (parent && parent.user_id !== user.sub) {
+      await createNotification(c.env.DB, parent.user_id, {
+        type: 'reply',
+        title: 'New reply to your comment',
+        body: `${user.name} replied in a discussion you joined.`,
+        discussionId: debateId,
+      });
+    }
+  }
+
   const moderation = await moderateContent(text, c.env);
 
   if (moderation.action === 'allow') {
+    const article = await c.env.DB.prepare(`SELECT title FROM articles WHERE id = ?`)
+      .bind(debateId)
+      .first<{ title: string }>();
+    await notifyDebateSubscribers(
+      c.env.DB,
+      debateId,
+      user.sub,
+      article?.title ?? 'Discussion',
+      user.name,
+    );
+
     return c.json({
       id: commentId,
       body: text,
@@ -296,6 +331,13 @@ commentsRouter.post('/:debateId/comments', async (c) => {
       .run();
     await insertCommentFlags(c.env.DB, commentId, moderation, 'bot');
     const penalty = await applyModerationPenalty(c.env.DB, c.env, user.sub, commentId, moderation);
+
+    await createNotification(c.env.DB, user.sub, {
+      type: 'moderation',
+      title: 'Comment flagged for review',
+      body: penalty.message ?? 'Your comment is hidden until an editor reviews it.',
+      discussionId: debateId,
+    });
 
     return c.json({
       id: commentId,
@@ -323,6 +365,13 @@ commentsRouter.post('/:debateId/comments', async (c) => {
   );
   const penalty = await applyModerationPenalty(c.env.DB, c.env, user.sub, commentId, moderation);
 
+  await createNotification(c.env.DB, user.sub, {
+    type: 'moderation',
+    title: 'Comment removed by moderation',
+    body: penalty.message ?? 'Your comment was removed for violating community guidelines.',
+    discussionId: debateId,
+  });
+
   return c.json({
     id: commentId,
     status: 'removed',
@@ -330,6 +379,10 @@ commentsRouter.post('/:debateId/comments', async (c) => {
     socialBanned: penalty.socialBanned,
     timeoutUntil: penalty.timeoutUntil,
   });
+  } catch (err) {
+    console.error('POST comment failed:', err);
+    return c.json({ error: 'internal_error', message: 'Could not post comment. Try again shortly.' }, 500);
+  }
 });
 
 export const commentDeleteRouter = new Hono<{ Bindings: Env }>();

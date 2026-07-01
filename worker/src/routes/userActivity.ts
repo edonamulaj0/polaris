@@ -13,6 +13,10 @@ import {
   type ClientActivityEntry,
   type ClientSyncPayload,
 } from '../lib/userActivityHelpers';
+import {
+  subscribeToDebate,
+  unsubscribeFromDebate,
+} from '../lib/debateSubscriptions';
 
 export const userActivityRouter = new Hono<{ Bindings: Env }>();
 
@@ -76,6 +80,38 @@ userActivityRouter.delete('/saved/:articleId', async (c) => {
   const articleId = c.req.param('articleId');
   await unsaveDebateForUser(c.env.DB, googleUser.sub, articleId);
   return c.json({ saved: false, articleId });
+});
+
+userActivityRouter.post('/subscriptions/:articleId', async (c) => {
+  const token = extractBearerToken(c.req.header('Authorization'));
+  if (!token) return c.json({ error: 'unauthorized' }, 401);
+  let googleUser;
+  try {
+    googleUser = await verifyGoogleToken(token, c.env);
+  } catch {
+    return c.json({ error: 'invalid_token' }, 401);
+  }
+
+  const articleId = c.req.param('articleId');
+  const ok = await subscribeToDebate(c.env.DB, googleUser.sub, articleId);
+  if (!ok) return c.json({ error: 'article_not_found' }, 404);
+
+  return c.json({ subscribed: true, articleId });
+});
+
+userActivityRouter.delete('/subscriptions/:articleId', async (c) => {
+  const token = extractBearerToken(c.req.header('Authorization'));
+  if (!token) return c.json({ error: 'unauthorized' }, 401);
+  let googleUser;
+  try {
+    googleUser = await verifyGoogleToken(token, c.env);
+  } catch {
+    return c.json({ error: 'invalid_token' }, 401);
+  }
+
+  const articleId = c.req.param('articleId');
+  await unsubscribeFromDebate(c.env.DB, googleUser.sub, articleId);
+  return c.json({ subscribed: false, articleId });
 });
 
 userActivityRouter.post('/activity', async (c) => {

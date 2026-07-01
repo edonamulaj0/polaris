@@ -20,14 +20,33 @@ function formatTimeoutCountdown(timeoutUntil: number): string {
   return `Your commenting privileges have been temporarily suspended until ${until} (${hours}h ${mins}m remaining) due to a violation of our community guidelines.`;
 }
 
+async function parseJsonResponse(res: Response) {
+  const text = await res.text();
+  if (!text.trim()) {
+    throw new Error(`Empty response (${res.status})`);
+  }
+  try {
+    return JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    throw new Error(
+      res.ok
+        ? 'Invalid response from server'
+        : text.slice(0, 160) || `Request failed (${res.status})`,
+    );
+  }
+}
+
 async function fetchComments(debateId: string, token?: string) {
   const headers: Record<string, string> = {};
   if (token) headers.Authorization = `Bearer ${token}`;
   const res = await fetch(`/api/debates/${encodeURIComponent(debateId)}/comments?limit=50`, {
     headers,
   });
-  if (!res.ok) throw new Error('Failed to load comments');
-  return res.json() as Promise<{ comments: Comment[]; nextCursor: string | null }>;
+  const data = await parseJsonResponse(res);
+  if (!res.ok) {
+    throw new Error(String(data.message || data.error || 'Failed to load comments'));
+  }
+  return data as { comments: Comment[]; nextCursor: string | null };
 }
 
 async function fetchModerationState(token: string) {
@@ -35,7 +54,8 @@ async function fetchModerationState(token: string) {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) return null;
-  return res.json() as Promise<UserModerationState>;
+  const data = await parseJsonResponse(res);
+  return data as UserModerationState;
 }
 
 function CommentAuthPrompt() {
@@ -179,8 +199,8 @@ function ReplyInput({
         },
         body: JSON.stringify({ body: text, parentId }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || data.error || 'Failed to post');
+      const data = await parseJsonResponse(res);
+      if (!res.ok) throw new Error(String(data.message || data.error || 'Failed to post'));
       return data;
     },
     onSuccess: (data) => {
@@ -196,6 +216,13 @@ function ReplyInput({
       <textarea
         value={body}
         onChange={(e) => setBody(e.target.value.slice(0, 2000))}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            const text = body.trim();
+            if (text.length >= 2 && !mutation.isPending) mutation.mutate(text);
+          }
+        }}
         rows={2}
         placeholder="Write a reply…"
         className="w-full resize-y rounded-none border border-[var(--border)] bg-[var(--surface-hi)] px-3 py-2 text-sm text-[var(--text)] outline-none focus:border-[var(--signal)]"
@@ -308,8 +335,8 @@ function CommentInput({
         },
         body: JSON.stringify({ body: text }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || data.error || 'Failed to post');
+      const data = await parseJsonResponse(res);
+      if (!res.ok) throw new Error(String(data.message || data.error || 'Failed to post'));
       return data;
     },
     onMutate: async (text) => {
@@ -392,9 +419,16 @@ function CommentInput({
       <textarea
         value={body}
         onChange={(e) => setBody(e.target.value.slice(0, 2000))}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            const text = body.trim();
+            if (!blocked && text.length >= 2 && !mutation.isPending) mutation.mutate(text);
+          }
+        }}
         disabled={blocked || mutation.isPending}
         rows={3}
-        placeholder="Add to the debate — be specific, be civil."
+        placeholder="Add to the debate — be specific, be civil. Enter to post, Shift+Enter for new line."
         className="w-full resize-y rounded-none border border-[var(--border)] bg-[var(--surface-hi)] px-4 py-3 text-sm text-[var(--text)] outline-none focus:border-[var(--signal)] disabled:opacity-50"
       />
       <div className="flex items-center justify-between">
@@ -496,8 +530,8 @@ export function CommentSection({
         </p>
       )}
       {error && (
-        <p className="mb-4 font-mono text-[10px] text-[var(--signal)]">
-          Could not load comments. You can still post above — try refreshing if this persists.
+        <p className="mb-4 font-body text-xs text-[var(--amber-glow)]">
+          Could not load comments{(error as Error)?.message ? `: ${(error as Error).message}` : ''}. You can still post above — try refreshing if this persists.
         </p>
       )}
 

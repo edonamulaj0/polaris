@@ -1,18 +1,27 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { HiOutlineX } from 'react-icons/hi'
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useScrollLock } from '../hooks/useScrollLock'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { useNotificationStore } from '../stores/notificationStore'
+import { useUserStore } from '../stores/userStore'
 
 export function NotificationsPanel({ open, onClose }) {
   const navigate = useNavigate()
+  const googleIdToken = useUserStore((s) => s.googleIdToken)
   const items = useNotificationStore((s) => s.items)
+  const loading = useNotificationStore((s) => s.loading)
   const markRead = useNotificationStore((s) => s.markRead)
   const markAllRead = useNotificationStore((s) => s.markAllRead)
+  const syncFromServer = useNotificationStore((s) => s.syncFromServer)
   const isDesktop = useMediaQuery('(min-width: 1024px)')
 
   useScrollLock(open && !isDesktop)
+
+  useEffect(() => {
+    if (open && googleIdToken) void syncFromServer(googleIdToken)
+  }, [open, googleIdToken, syncFromServer])
 
   return (
     <AnimatePresence>
@@ -64,21 +73,29 @@ export function NotificationsPanel({ open, onClose }) {
             <div className="flex shrink-0 justify-center border-b border-[var(--border)] py-1.5">
               <button
                 type="button"
-                onClick={() => markAllRead()}
+                onClick={() => markAllRead(googleIdToken)}
                 className="text-xs font-semibold text-[var(--signal)] hover:underline sm:text-sm"
               >
                 Mark all as read
               </button>
             </div>
             <ul className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 sm:p-3">
+              {loading && items.length === 0 && (
+                <li className="px-3 py-8 text-center text-sm text-[var(--muted)]">Loading…</li>
+              )}
+              {!loading && items.length === 0 && (
+                <li className="px-3 py-8 text-center text-sm text-[var(--muted)]">No notifications yet.</li>
+              )}
               {items.map((n) => (
                 <li key={n.id} className="mb-1.5 sm:mb-2">
                   <button
                     type="button"
                     onClick={() => {
-                      markRead(n.id)
+                      markRead(n.id, googleIdToken)
                       onClose()
-                      navigate(`/discussion/${n.discussionId}`)
+                      if (n.discussionId) {
+                        navigate(`/discussion/${n.discussionId}`)
+                      }
                     }}
                     className="flex w-full gap-2 rounded-none border border-transparent p-3 text-left transition-colors hover:border-[var(--border)] hover:bg-[var(--surface-hi)] sm:gap-3 sm:p-4"
                   >

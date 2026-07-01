@@ -17,7 +17,13 @@
     "db:migrate:comments:local": "wrangler d1 execute polaris-db --local --file=migrations/002_comments.sql",
     "db:migrate:tiers": "wrangler d1 execute polaris-db --remote --file=migrations/003_moderation_tiers.sql",
     "db:migrate:activity": "wrangler d1 execute polaris-db --remote --file=migrations/006_user_activity.sql",
-    "db:migrate:activity:local": "wrangler d1 execute polaris-db --local --file=migrations/006_user_activity.sql"
+    "db:migrate:activity:local": "wrangler d1 execute polaris-db --local --file=migrations/006_user_activity.sql",
+    "db:migrate:editor": "wrangler d1 execute polaris-db --remote --file=migrations/007_editor_auth.sql",
+    "db:migrate:editor:local": "wrangler d1 execute polaris-db --local --file=migrations/007_editor_auth.sql",
+    "db:migrate:notifications": "wrangler d1 execute polaris-db --remote --file=migrations/008_notifications.sql",
+    "db:migrate:notifications:local": "wrangler d1 execute polaris-db --local --file=migrations/008_notifications.sql",
+    "db:migrate:subscriptions": "wrangler d1 execute polaris-db --remote --file=migrations/009_debate_subscriptions.sql",
+    "db:migrate:subscriptions:local": "wrangler d1 execute polaris-db --local --file=migrations/009_debate_subscriptions.sql"
   },
   "dependencies": {
     "hono": "^4.6.0"

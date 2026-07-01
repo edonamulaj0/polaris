@@ -12,6 +12,8 @@ export interface Env {
   ANTHROPIC_API_KEY?: string;
   EMAIL_FROM?: string; // verified sending domain address
   ENVIRONMENT: string;
+  EDITOR_SESSION_SECRET?: string;
+  ALLOWED_ORIGINS?: string;
 }
 
 export interface UserRow {
@@ -21,6 +23,8 @@ export interface UserRow {
   birth_date: string | null;
   birth_locked: number;
   created_at: number;
+  is_editor?: number;
+  editor_pin_hash?: string | null;
 }
 
 export interface ArticleRow {

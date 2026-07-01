@@ -1,8 +1,10 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { StanceBar } from './StanceBar'
 import { useUserStore } from '../stores/userStore'
 import { useFeedStore } from '../stores/feedStore'
+import { fetchVoteState } from '../services/voteApi'
 
 const STANCES = [
   { key: 'For', label: 'Pro' },
@@ -10,24 +12,26 @@ const STANCES = [
   { key: 'Neutral', label: 'Neutral' },
 ]
 
-function stanceButtonClasses(stance, selected, compact) {
+function stanceButtonClasses(stance, selected, compact, disabled) {
   const sizeClass = compact
     ? 'min-h-[44px] px-5 py-3 text-sm font-semibold rounded-full'
     : 'min-h-[44px] min-w-[120px] px-8 py-4 text-base font-bold rounded-full'
 
+  const disabledClass = disabled ? ' opacity-50 cursor-not-allowed' : ''
+
   if (stance === 'For') {
     return selected
-      ? `${sizeClass} bg-[var(--vote-for-active)] text-[var(--vote-for-active-text)] shadow-[var(--shadow-pill)]`
-      : `${sizeClass} bg-[var(--stance-for-bg)] text-[var(--stance-for-text)] shadow-[var(--shadow-pill)] hover:bg-[var(--stance-for-bg)]`
+      ? `${sizeClass} bg-[var(--vote-for-active)] text-[var(--vote-for-active-text)] shadow-[var(--shadow-pill)]${disabledClass}`
+      : `${sizeClass} bg-[var(--stance-for-bg)] text-[var(--stance-for-text)] shadow-[var(--shadow-pill)] hover:bg-[var(--stance-for-bg)]${disabledClass}`
   }
   if (stance === 'Against') {
     return selected
-      ? `${sizeClass} bg-[var(--vote-against-active)] text-[var(--vote-against-active-text)] shadow-[var(--shadow-pill)]`
-      : `${sizeClass} bg-[var(--stance-against-bg)] text-[var(--stance-against-text)] shadow-[var(--shadow-pill)]`
+      ? `${sizeClass} bg-[var(--vote-against-active)] text-[var(--vote-against-active-text)] shadow-[var(--shadow-pill)]${disabledClass}`
+      : `${sizeClass} bg-[var(--stance-against-bg)] text-[var(--stance-against-text)] shadow-[var(--shadow-pill)]${disabledClass}`
   }
   return selected
-    ? `${sizeClass} bg-[var(--vote-neutral-active)] text-[var(--vote-neutral-active-text)] shadow-[var(--shadow-pill)]`
-    : `${sizeClass} bg-[var(--stance-neutral-bg)] text-[var(--stance-neutral-text)] shadow-[var(--shadow-pill)]`
+    ? `${sizeClass} bg-[var(--vote-neutral-active)] text-[var(--vote-neutral-active-text)] shadow-[var(--shadow-pill)]${disabledClass}`
+    : `${sizeClass} bg-[var(--stance-neutral-bg)] text-[var(--stance-neutral-text)] shadow-[var(--shadow-pill)]${disabledClass}`
 }
 
 function voteHighlightClass(stance) {
@@ -43,32 +47,60 @@ export function VoteWidget({
   stanceDistribution,
   compact = false,
 }) {
-  const stanceHistory = useUserStore((s) => s.stanceHistory)
+  const googleIdToken = useUserStore((s) => s.googleIdToken)
   const recordStance = useUserStore((s) => s.recordStance)
+  const updateVoteDistribution = useFeedStore((s) => s.updateVoteDistribution)
   const voteCount = useFeedStore((s) => s.posts.find((p) => p.id === postId)?.num_comments)
 
-  const savedVote = useMemo(
-    () => stanceHistory.find((h) => h.discussionId === postId)?.stance ?? null,
-    [stanceHistory, postId],
-  )
+  const fallbackDist = stanceDistribution || { for: 33, against: 34, neutral: 33 }
 
-  const [currentVote, setCurrentVote] = useState(savedVote)
+  const { data: voteState, isLoading } = useQuery({
+    queryKey: ['vote-state', postId, googleIdToken],
+    queryFn: () => fetchVoteState(postId, googleIdToken),
+    staleTime: 30_000,
+  })
+
+  const [distribution, setDistribution] = useState(fallbackDist)
+  const [currentVote, setCurrentVote] = useState(null)
+  const [voteError, setVoteError] = useState('')
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    setCurrentVote(savedVote)
-  }, [savedVote])
+    if (voteState?.distribution) {
+      setDistribution(voteState.distribution)
+    } else {
+      setDistribution(fallbackDist)
+    }
+  }, [voteState, fallbackDist.for, fallbackDist.against, fallbackDist.neutral])
 
-  const dist = stanceDistribution || { for: 33, against: 34, neutral: 33 }
+  useEffect(() => {
+    setCurrentVote(voteState?.userStance ?? null)
+  }, [voteState?.userStance])
+
+  const dist = distribution
   const hasVoted = Boolean(currentVote)
+  const canVote = Boolean(googleIdToken?.trim()) && !saving
 
-  function onVote(stance) {
-    void recordStance({
+  async function onVote(stance) {
+    if (!canVote) return
+    setVoteError('')
+    setSaving(true)
+    const result = await recordStance({
       discussionId: postId,
       title: postTitle,
       category,
       stance,
     })
-    setCurrentVote(stance)
+    setSaving(false)
+    if (!result.ok) {
+      setVoteError(result.message || 'Could not save your vote.')
+      return
+    }
+    setCurrentVote(result.stance ?? stance)
+    if (result.distribution) {
+      setDistribution(result.distribution)
+      updateVoteDistribution(postId, result.distribution)
+    }
   }
 
   const layoutClass = compact
@@ -83,21 +115,32 @@ export function VoteWidget({
         </p>
       )}
 
+      {!googleIdToken && (
+        <p className="mb-3 text-xs text-[var(--muted)]">Sign in with Google to register your stance.</p>
+      )}
+
       <div className={layoutClass}>
         {STANCES.map(({ key, label }) => (
           <motion.button
             key={key}
             type="button"
             onClick={() => onVote(key)}
+            disabled={!canVote || isLoading}
             aria-pressed={currentVote === key}
             aria-label={`Vote ${label}`}
-            whileTap={{ scale: 0.98 }}
-            className={`w-full transition-colors sm:w-auto ${stanceButtonClasses(key, currentVote === key, compact)}`}
+            whileTap={canVote ? { scale: 0.98 } : undefined}
+            className={`w-full transition-colors sm:w-auto ${stanceButtonClasses(key, currentVote === key, compact, !canVote || isLoading)}`}
           >
             {label}
           </motion.button>
         ))}
       </div>
+
+      {voteError && (
+        <p className="mt-2 text-xs text-[var(--signal)]" role="alert">
+          {voteError}
+        </p>
+      )}
 
       {!compact && (
         <AnimatePresence>
@@ -119,12 +162,14 @@ export function VoteWidget({
                 </p>
                 <StanceBar
                   distribution={dist}
-                  commentCount={voteCount}
+                  commentCount={voteState?.total ?? voteCount}
                   className="mt-3"
                   showTooltip
                 />
                 <p className="mt-2 font-body text-[10px] text-[var(--muted)]">
-                  {voteCount != null ? `${voteCount} votes` : 'Community distribution'}
+                  {voteState?.total != null && voteState.total > 0
+                    ? `${voteState.total} votes recorded`
+                    : 'Community distribution'}
                 </p>
               </div>
             </motion.div>

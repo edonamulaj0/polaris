@@ -15,6 +15,7 @@ function toIsoLocalDate(d) {
 
 export function AuthGate() {
   const googleSub = useUserStore((s) => s.googleSub)
+  const googleIdToken = useUserStore((s) => s.googleIdToken)
   const birthDate = useUserStore((s) => s.birthDate)
   const birthLocked = useUserStore((s) => s.birthLocked) // [FE-3]
   const setGoogleProfileFromJwt = useUserStore((s) => s.setGoogleProfileFromJwt)
@@ -49,7 +50,7 @@ export function AuthGate() {
   }, [birthDate])
 
   useEffect(() => {
-    if (!googleSub?.trim() || birthLocked) {
+    if (!googleSub?.trim() || birthLocked || !googleIdToken?.trim()) {
       setServerChecked(true) // [FE-3]
       return undefined
     }
@@ -58,7 +59,9 @@ export function AuthGate() {
     setCheckingServer(true) // [FE-3]
     setServerChecked(false) // [FE-3]
 
-    fetch(`/api/users/${encodeURIComponent(googleSub)}/birthday`) // [FE-3]
+    fetch('/api/users/me/birthday', {
+      headers: { Authorization: `Bearer ${googleIdToken}` },
+    })
       .then((res) => (res.ok ? res.json() : { set: false }))
       .then((data) => {
         if (cancelled) return
@@ -80,7 +83,7 @@ export function AuthGate() {
     return () => {
       cancelled = true
     }
-  }, [googleSub, birthLocked])
+  }, [googleSub, googleIdToken, birthLocked])
 
   const needsGoogle = !googleSub?.trim()
   const needsDob =
