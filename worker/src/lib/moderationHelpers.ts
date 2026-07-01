@@ -167,6 +167,19 @@ export async function issueStrike(
   await recalculateModerationState(db, userId);
 }
 
+const VALID_FLAG_TYPES = new Set([
+  'offensive',
+  'sarcasm',
+  'irony',
+  'borderline',
+  'false_positive',
+  'masking_bypass',
+]);
+
+function normalizeFlagType(type: string): string {
+  return VALID_FLAG_TYPES.has(type) ? type : 'borderline';
+}
+
 export async function insertCommentFlags(
   db: D1Database,
   commentId: string,
@@ -184,19 +197,23 @@ export async function insertCommentFlags(
           },
         ];
 
-  const statements = await Promise.all(
-    flags.map(async (flag) => {
-      const flagId = await generateId('flg');
-      return db
-        .prepare(
-          `INSERT INTO comment_flags (id, comment_id, flagged_by, flag_type, confidence, reasoning)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-        )
-        .bind(flagId, commentId, flaggedBy, flag.type, flag.confidence, flag.reasoning);
-    }),
-  );
-
-  await db.batch(statements);
+  for (const flag of flags) {
+    const flagId = await generateId('flg');
+    await db
+      .prepare(
+        `INSERT INTO comment_flags (id, comment_id, flagged_by, flag_type, confidence, reasoning)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        flagId,
+        commentId,
+        flaggedBy,
+        normalizeFlagType(flag.type),
+        flag.confidence ?? 0.5,
+        flag.reasoning ?? '',
+      )
+      .run();
+  }
 }
 
 export async function logViolation(
@@ -477,11 +494,16 @@ export async function checkRateLimit(
   userId: string,
 ): Promise<boolean> {
   if (!kv) return true;
-  const key = `comments:ratelimit:${userId}`;
-  const existing = await kv.get(key);
-  if (existing) return false;
-  await kv.put(key, '1', { expirationTtl: 5 });
-  return true;
+  try {
+    const key = `comments:ratelimit:${userId}`;
+    const existing = await kv.get(key);
+    if (existing) return false;
+    await kv.put(key, '1', { expirationTtl: 5 });
+    return true;
+  } catch (err) {
+    console.error('rate limit KV error:', err);
+    return true;
+  }
 }
 
 export function formatTimeoutMessage(timeoutUntil: number): string {

@@ -1,7 +1,7 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './layout/AppLayout'
 import { FeedBootstrap } from './components/FeedBootstrap'
-import { AuthGate } from './components/AuthGate'
+import { SignInModal } from './components/SignInModal'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { HomePage } from './pages/HomePage'
 import { DiscussionPage } from './pages/DiscussionPage'
@@ -16,7 +16,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <FeedBootstrap />
-      <AuthGate />
+      <SignInModal />
       {/* [REFACTOR U-3] Top-level boundary — prevents full-app white screen on render errors */}
       <ErrorBoundary>
         <Routes>

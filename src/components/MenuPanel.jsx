@@ -1,17 +1,20 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { HiOutlineX } from 'react-icons/hi'
+import { HiOutlineBell, HiOutlineX } from 'react-icons/hi'
 import {
   IoHomeOutline,
   IoCompassOutline,
   IoPersonOutline,
   IoInformationCircleOutline,
+  IoAddOutline,
+  IoLogInOutline,
+  IoLogOutOutline,
 } from 'react-icons/io5'
-import { Link, NavLink } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import { useScrollLock } from '../hooks/useScrollLock'
 import { useMediaQuery } from '../hooks/useMediaQuery'
-import { ThemeToggle } from './ThemeToggle'
 import { LogoMark } from './LogoMark'
 import { useUserStore } from '../stores/userStore'
+import { PAGE_SHELL } from '../layout/pageShell'
 
 const navItems = [
   { to: '/', end: true, label: 'Home', icon: IoHomeOutline },
@@ -20,17 +23,49 @@ const navItems = [
   { to: '/about', label: 'About', icon: IoInformationCircleOutline },
 ]
 
-export function MenuPanel({ open, onClose }) {
-  const googleSub = useUserStore((s) => s.googleSub)
+const menuLinkClass = ({ isActive }) =>
+  `nav-pill flex w-full max-w-xs items-center justify-center gap-3 px-6 py-3.5 text-sm font-medium ${
+    isActive ? 'nav-pill-active text-[var(--text-hi)]' : 'text-[var(--muted)]'
+  }`
+
+export function MenuPanel({ open, onClose, onNewDiscussion, onOpenNotifications, unread = 0 }) {
+  const signedIn = useUserStore((s) =>
+    Boolean(s.googleSub?.trim() && s.googleIdToken?.trim()),
+  )
   const signOut = useUserStore((s) => s.signOut)
+  const openSignInPrompt = useUserStore((s) => s.openSignInPrompt)
   const isDesktop = useMediaQuery('(min-width: 1024px)')
   useScrollLock(open && !isDesktop)
+
+  function handleSubmitTopic() {
+    onClose()
+    if (!signedIn) {
+      openSignInPrompt()
+      return
+    }
+    onNewDiscussion()
+  }
+
+  function handleNotifications() {
+    onClose()
+    if (!signedIn) {
+      openSignInPrompt()
+      return
+    }
+    onOpenNotifications()
+  }
+
+  function handleSignInOut() {
+    onClose()
+    if (signedIn) signOut()
+    else openSignInPrompt()
+  }
 
   return (
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-[110] flex flex-col bg-[var(--page)] md:hidden"
+          className="fixed inset-0 z-[110] flex flex-col bg-[var(--page)] lg:hidden"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -39,8 +74,8 @@ export function MenuPanel({ open, onClose }) {
           aria-modal="true"
           aria-label="Main menu"
         >
-          <div className="relative flex shrink-0 items-center justify-between px-4 py-4">
-            <LogoMark compact showTagline={false} />
+          <div className={`${PAGE_SHELL} flex shrink-0 items-center justify-between py-4`}>
+            <LogoMark />
             <motion.button
               type="button"
               onClick={onClose}
@@ -52,56 +87,64 @@ export function MenuPanel({ open, onClose }) {
             </motion.button>
           </div>
 
-          <nav className="flex flex-1 flex-col gap-1.5 px-4 py-4">
+          <nav
+            className="flex flex-1 flex-col items-center justify-evenly px-6 py-6"
+            aria-label="Main navigation"
+          >
             {navItems.map(({ to, end, label, icon: Icon }) => (
               <NavLink
                 key={to}
                 to={to}
                 end={end}
                 onClick={onClose}
-                className={({ isActive }) =>
-                  `nav-pill flex items-center gap-3 px-4 py-3 text-sm font-medium ${
-                    isActive ? 'nav-pill-active text-[var(--text-hi)]' : 'text-[var(--muted)]'
-                  }`
-                }
+                className={menuLinkClass}
               >
-                <Icon className="h-5 w-5 opacity-70" aria-hidden />
+                <Icon className="h-5 w-5 shrink-0 opacity-80" aria-hidden />
                 {label}
               </NavLink>
             ))}
-            <Link
-              to="/terms"
-              onClick={onClose}
-              className="nav-pill px-4 py-3 text-sm font-medium text-[var(--muted)]"
-            >
-              Terms of Service
-            </Link>
-            <Link
-              to="/privacy"
-              onClick={onClose}
-              className="nav-pill px-4 py-3 text-sm font-medium text-[var(--muted)]"
-            >
-              Privacy Policy
-            </Link>
-          </nav>
 
-          <div className="shrink-0 px-6 py-4">
-            <div className="mb-4 flex justify-center">
-              <ThemeToggle />
-            </div>
-            {googleSub ? (
-              <button
-                type="button"
-                onClick={() => {
-                  signOut()
-                  onClose()
-                }}
-                className="w-full rounded-full bg-[var(--nav-pill-bg)] py-3 text-xs font-semibold text-[var(--muted)] shadow-[var(--shadow-pill)] transition-colors hover:bg-[var(--nav-pill-hover)] hover:text-[var(--text)]"
-              >
-                Sign out of Google
-              </button>
-            ) : null}
-          </div>
+            <button
+              type="button"
+              onClick={handleSubmitTopic}
+              className="nav-pill flex w-full max-w-xs items-center justify-center gap-3 px-6 py-3.5 text-sm font-medium text-[var(--muted)]"
+            >
+              <IoAddOutline className="h-5 w-5 shrink-0 opacity-80" aria-hidden />
+              Submit Topic
+            </button>
+
+            <button
+              type="button"
+              onClick={handleNotifications}
+              className="nav-pill relative flex w-full max-w-xs items-center justify-center gap-3 px-6 py-3.5 text-sm font-medium text-[var(--muted)]"
+            >
+              <HiOutlineBell className="h-5 w-5 shrink-0 opacity-80" aria-hidden />
+              Notifications
+              {unread > 0 && signedIn && (
+                <span className="ml-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-[var(--gold)] px-1 text-[10px] font-bold text-[var(--signal-on)]">
+                  {unread > 9 ? '9+' : unread}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSignInOut}
+              className="nav-pill flex w-full max-w-xs items-center justify-center gap-3 px-6 py-3.5 text-sm font-medium text-[var(--muted)]"
+            >
+              {signedIn ? (
+                <>
+                  <IoLogOutOutline className="h-5 w-5 shrink-0 opacity-80" aria-hidden />
+                  Log out
+                </>
+              ) : (
+                <>
+                  <IoLogInOutline className="h-5 w-5 shrink-0 opacity-80" aria-hidden />
+                  Sign in
+                </>
+              )}
+            </button>
+          </nav>
         </motion.div>
       )}
     </AnimatePresence>

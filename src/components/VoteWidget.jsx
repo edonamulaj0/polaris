@@ -12,10 +12,12 @@ const STANCES = [
   { key: 'Neutral', label: 'Neutral' },
 ]
 
-function stanceButtonClasses(stance, selected, compact, disabled) {
-  const sizeClass = compact
-    ? 'min-h-[44px] px-5 py-3 text-sm font-semibold rounded-full'
-    : 'min-h-[44px] min-w-[120px] px-8 py-4 text-base font-bold rounded-full'
+function stanceButtonClasses(stance, selected, compact, disabled, mobileBar) {
+  const sizeClass = mobileBar
+    ? 'min-h-[40px] px-2 py-2.5 text-xs font-semibold rounded-full'
+    : compact
+      ? 'min-h-[44px] px-5 py-3 text-sm font-semibold rounded-full'
+      : 'min-h-[44px] min-w-[120px] px-8 py-4 text-base font-bold rounded-full'
 
   const disabledClass = disabled ? ' opacity-50 cursor-not-allowed' : ''
 
@@ -46,13 +48,24 @@ export function VoteWidget({
   category,
   stanceDistribution,
   compact = false,
+  mobileBar = false,
 }) {
   const googleIdToken = useUserStore((s) => s.googleIdToken)
+  const clearExpiredGoogleSession = useUserStore((s) => s.clearExpiredGoogleSession)
+  const openSignInPrompt = useUserStore((s) => s.openSignInPrompt)
+  const isSignedIn = useUserStore((s) => s.isSignedIn)
+  const canParticipate = useUserStore((s) => s.canParticipate)
   const recordStance = useUserStore((s) => s.recordStance)
   const updateVoteDistribution = useFeedStore((s) => s.updateVoteDistribution)
   const voteCount = useFeedStore((s) => s.posts.find((p) => p.id === postId)?.num_comments)
 
   const fallbackDist = stanceDistribution || { for: 33, against: 34, neutral: 33 }
+
+  useEffect(() => {
+    clearExpiredGoogleSession()
+  }, [clearExpiredGoogleSession])
+
+  const tokenValid = isSignedIn()
 
   const { data: voteState, isLoading } = useQuery({
     queryKey: ['vote-state', postId, googleIdToken],
@@ -79,9 +92,17 @@ export function VoteWidget({
 
   const dist = distribution
   const hasVoted = Boolean(currentVote)
-  const canVote = Boolean(googleIdToken?.trim()) && !saving
+  const canVote = canParticipate() && !saving && !isLoading
 
   async function onVote(stance) {
+    if (!tokenValid) {
+      openSignInPrompt()
+      return
+    }
+    if (!canParticipate()) {
+      openSignInPrompt()
+      return
+    }
     if (!canVote) return
     setVoteError('')
     setSaving(true)
@@ -103,20 +124,35 @@ export function VoteWidget({
     }
   }
 
-  const layoutClass = compact
-    ? 'flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3'
-    : 'flex flex-col gap-3 sm:flex-row sm:gap-4'
+  const layoutClass = mobileBar
+    ? 'grid grid-cols-3 gap-2'
+    : compact
+      ? 'flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3'
+      : 'flex flex-col gap-3 sm:flex-row sm:gap-4'
 
   return (
-    <div className={compact ? '' : 'w-full'}>
-      {!compact && (
+    <div className={compact || mobileBar ? '' : 'w-full'}>
+      {!compact && !mobileBar && (
         <p className="mb-5 font-body text-[10px] uppercase tracking-[.15em] text-[var(--muted)]">
           Where do you stand?
         </p>
       )}
 
-      {!googleIdToken && (
-        <p className="mb-3 text-xs text-[var(--muted)]">Sign in with Google to register your stance.</p>
+      {mobileBar && (
+        <p className="mb-2 font-body text-[10px] uppercase tracking-[.15em] text-[var(--muted)]">
+          Where do you stand?
+        </p>
+      )}
+
+      {!tokenValid && (
+        <p className="mb-3 text-xs text-[var(--muted)]">
+          Sign in to register your stance on this debate.
+        </p>
+      )}
+      {tokenValid && !canParticipate() && (
+        <p className="mb-3 text-xs text-[var(--muted)]">
+          Enter your date of birth once to vote (required for age verification).
+        </p>
       )}
 
       <div className={layoutClass}>
@@ -125,11 +161,11 @@ export function VoteWidget({
             key={key}
             type="button"
             onClick={() => onVote(key)}
-            disabled={!canVote || isLoading}
+            disabled={isLoading || saving}
             aria-pressed={currentVote === key}
             aria-label={`Vote ${label}`}
-            whileTap={canVote ? { scale: 0.98 } : undefined}
-            className={`w-full transition-colors sm:w-auto ${stanceButtonClasses(key, currentVote === key, compact, !canVote || isLoading)}`}
+            whileTap={{ scale: 0.98 }}
+            className={`transition-colors ${mobileBar ? 'w-full min-w-0' : 'w-full sm:w-auto'} ${stanceButtonClasses(key, currentVote === key, compact, isLoading || saving, mobileBar)}`}
           >
             {label}
           </motion.button>
@@ -142,7 +178,7 @@ export function VoteWidget({
         </p>
       )}
 
-      {!compact && (
+      {!compact && !mobileBar && (
         <AnimatePresence>
           {hasVoted && (
             <motion.div

@@ -7,11 +7,24 @@ const actionBtn =
   'flex h-11 w-11 items-center justify-center rounded-full transition-colors shadow-[var(--shadow-pill)]'
 
 export function DebateSaveSubscribe({ discussionId, title, className = '' }) {
-  const googleIdToken = useUserStore((s) => s.googleIdToken)
+  const isSignedIn = useUserStore((s) => s.isSignedIn)
+  const openSignInPrompt = useUserStore((s) => s.openSignInPrompt)
   const liked = useUserStore((s) => s.isDiscussionLiked(discussionId))
   const subscribed = useUserStore((s) => s.isDiscussionSubscribed(discussionId))
   const toggleLike = useUserStore((s) => s.toggleDiscussionLike)
   const toggleSubscribe = useUserStore((s) => s.toggleDiscussionSubscribe)
+
+  function guardSocial(action) {
+    return (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (!isSignedIn()) {
+        openSignInPrompt()
+        return
+      }
+      void action()
+    }
+  }
 
   return (
     <div className={`flex items-center justify-end gap-2 ${className}`}>
@@ -21,24 +34,17 @@ export function DebateSaveSubscribe({ discussionId, title, className = '' }) {
           subscribed ? 'Unsubscribe from comment notifications' : 'Notify me about new comments'
         }
         title={
-          !googleIdToken
-            ? 'Sign in to subscribe to comments'
-            : subscribed
-              ? 'Unsubscribe from new comments'
-              : 'Notify me when new comments are posted'
+          subscribed
+            ? 'Unsubscribe from new comments'
+            : 'Notify me when new comments are posted (sign in required)'
         }
-        disabled={!googleIdToken}
         className={`${actionBtn} ${
           subscribed
             ? 'bg-[var(--signal-muted)] text-[var(--gold)]'
             : 'bg-[var(--surface-hi)] text-[var(--muted)] hover:text-[var(--text)]'
-        } disabled:cursor-not-allowed disabled:opacity-40`}
-        onClick={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          void toggleSubscribe(discussionId, title)
-        }}
-        whileTap={googleIdToken ? { scale: 0.92 } : undefined}
+        }`}
+        onClick={guardSocial(() => toggleSubscribe(discussionId, title))}
+        whileTap={{ scale: 0.92 }}
       >
         {subscribed ? (
           <IoNotifications className="h-5 w-5" aria-hidden />
@@ -49,17 +55,13 @@ export function DebateSaveSubscribe({ discussionId, title, className = '' }) {
       <motion.button
         type="button"
         aria-label={liked ? 'Unlike' : 'Save discussion'}
-        title={liked ? 'Remove from saved' : 'Save discussion'}
+        title={liked ? 'Remove from saved' : 'Save discussion (sign in required)'}
         className={`${actionBtn} ${
           liked
             ? 'bg-[var(--signal-muted)] text-[var(--gold)]'
             : 'bg-[var(--surface-hi)] text-[var(--muted)] hover:text-[var(--text)]'
         }`}
-        onClick={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          void toggleLike(discussionId, title)
-        }}
+        onClick={guardSocial(() => toggleLike(discussionId, title))}
         whileTap={{ scale: 0.92 }}
       >
         {liked ? <AiFillHeart className="h-5 w-5" aria-hidden /> : <AiOutlineHeart className="h-5 w-5" aria-hidden />}

@@ -1,8 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
-import { useMemo, useState } from 'react';
-import { GoogleLogin } from '@react-oauth/google';
-import { jwtDecode } from 'jwt-decode';
+import { useMemo, useState, useEffect } from 'react';
 import { useUserStore } from '../stores/userStore';
 import type { Comment, UserModerationState } from '../types/moderation';
 import { MODERATION_DISCLAIMER, WARNING_MESSAGE } from '../types/moderation';
@@ -58,45 +56,24 @@ async function fetchModerationState(token: string) {
   return data as UserModerationState;
 }
 
-function CommentAuthPrompt() {
-  const setGoogleProfileFromJwt = useUserStore((s) => s.setGoogleProfileFromJwt);
-  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-
-  if (!clientId) {
-    return (
-      <p className="mb-6 text-sm text-[var(--muted)]">
-        Sign-in is not configured. Set <code className="text-[var(--text)]">VITE_GOOGLE_CLIENT_ID</code>{' '}
-        to comment.
-      </p>
-    );
-  }
-
+function SignInToCommentBar({ onSignIn }: { onSignIn: () => void }) {
   return (
-    <div className="mb-8 rounded-none border border-[var(--border)] bg-[var(--surface-hi)] px-5 py-5">
-      <p className="font-mono text-[10px] uppercase tracking-[.15em] text-[var(--signal)]">
-        Sign in to comment
-      </p>
-      <p className="mt-2 text-sm leading-relaxed text-[var(--text)]">
-        Your session expired or you need to sign in with Google before joining the debate.
-      </p>
-      <div className="mt-4 flex justify-start">
-        <GoogleLogin
-          onSuccess={(res) => {
-            const credential = res.credential;
-            if (!credential) return;
-            try {
-              setGoogleProfileFromJwt(jwtDecode(credential), credential);
-            } catch {
-              /* invalid jwt */
-            }
-          }}
-          onError={() => {}}
-          theme="outline"
-          size="large"
-          text="signin_with"
-          shape="rectangular"
-        />
+    <div className="mb-8 flex flex-col gap-3 rounded-none border border-[var(--border)] bg-[var(--surface-hi)] px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p className="font-mono text-[10px] uppercase tracking-[.15em] text-[var(--signal)]">
+          Join the conversation
+        </p>
+        <p className="mt-1 text-sm text-[var(--muted)]">
+          Sign in to post comments, vote, and save debates. Reading is always free.
+        </p>
       </div>
+      <button
+        type="button"
+        onClick={onSignIn}
+        className="shrink-0 bg-[var(--gold)] px-5 py-2.5 text-[10px] font-bold uppercase tracking-[.12em] text-[var(--signal-on)]"
+      >
+        Sign in
+      </button>
     </div>
   );
 }
@@ -462,7 +439,17 @@ export function CommentSection({
 }) {
   const googleSub = useUserStore((s) => s.googleSub);
   const googleIdToken = useUserStore((s) => s.googleIdToken);
+  const openSignInPrompt = useUserStore((s) => s.openSignInPrompt);
+  const clearExpiredGoogleSession = useUserStore((s) => s.clearExpiredGoogleSession);
   const [notice, setNotice] = useState<string | null>(null);
+
+  const isSignedIn = useUserStore((s) => s.isSignedIn);
+  const tokenValid = useUserStore((s) => s.isSignedIn());
+  const canComment = useUserStore((s) => s.canParticipate());
+
+  useEffect(() => {
+    clearExpiredGoogleSession();
+  }, [clearExpiredGoogleSession]);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['comments', debateId, googleIdToken ?? 'anon'],
@@ -471,9 +458,9 @@ export function CommentSection({
   });
 
   const { data: modState } = useQuery({
-    queryKey: ['moderation-state'],
+    queryKey: ['moderation-state', googleIdToken],
     queryFn: () => fetchModerationState(googleIdToken!),
-    enabled: Boolean(googleSub && googleIdToken),
+    enabled: tokenValid,
     refetchInterval: 60000,
   });
 
@@ -507,10 +494,26 @@ export function CommentSection({
         <ModerationNotice message={notice} onDismiss={() => setNotice(null)} />
       )}
 
-      {!googleSub ? (
-        <CommentAuthPrompt />
-      ) : !googleIdToken ? (
-        <CommentAuthPrompt />
+      {!isSignedIn() ? (
+        <SignInToCommentBar onSignIn={openSignInPrompt} />
+      ) : !canComment ? (
+        <div className="mb-8 flex flex-col gap-3 rounded-none border border-[var(--border)] bg-[var(--surface-hi)] px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[.15em] text-[var(--signal)]">
+              One more step
+            </p>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              Enter your date of birth once to comment (required for age verification).
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={openSignInPrompt}
+            className="shrink-0 bg-[var(--gold)] px-5 py-2.5 text-[10px] font-bold uppercase tracking-[.12em] text-[var(--signal-on)]"
+          >
+            Continue
+          </button>
+        </div>
       ) : (
         <div className="mb-8">
           <CommentInput

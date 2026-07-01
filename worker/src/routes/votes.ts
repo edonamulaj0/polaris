@@ -7,12 +7,14 @@ import { extractBearerToken, verifyGoogleToken } from '../lib/auth';
 import { getVoteDistribution, syncArticleStanceCounts } from '../lib/voteHelpers';
 import { getUserModerationState } from '../lib/moderationHelpers';
 import { ensureDebateExists } from '../lib/ensureCuratedArticle';
+import { ensureUserRow } from '../lib/ensureUser';
 
 export const votesRouter = new Hono<{ Bindings: Env }>(); // [WRK-4]
 
 const VALID_STANCES = ['For', 'Against', 'Neutral'] as const; // [WRK-4]
 
 votesRouter.post('/:id/vote', async (c) => {
+  try {
   const authHeader = c.req.header('Authorization'); // [WRK-4]
   const token = authHeader?.startsWith('Bearer ')
     ? authHeader.slice(7)
@@ -49,6 +51,8 @@ votesRouter.post('/:id/vote', async (c) => {
     return c.json({ error: 'article_not_found' }, 404); // [WRK-4]
   }
 
+  await ensureUserRow(c.env.DB, googleUser);
+
   await c.env.DB.prepare(
     `INSERT INTO votes (user_id, article_id, stance) VALUES (?, ?, ?)
      ON CONFLICT(user_id, article_id) DO UPDATE SET
@@ -64,10 +68,16 @@ votesRouter.post('/:id/vote', async (c) => {
     stance: body.stance, // [WRK-4]
     distribution, // [WRK-4]
   });
+  } catch (err) {
+    console.error('POST vote failed:', err);
+    return c.json({ error: 'internal_error', message: 'Could not save your vote.' }, 500);
+  }
 });
 
 votesRouter.get('/:id/votes', async (c) => {
   const articleId = c.req.param('id'); // [WRK-4]
+
+  await ensureDebateExists(c.env.DB, articleId);
 
   const article = await c.env.DB.prepare(
     `SELECT stance_for, stance_against, stance_neutral FROM articles WHERE id = ?`,

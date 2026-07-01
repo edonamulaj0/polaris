@@ -3,7 +3,6 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { AppNavbar } from '../components/AppNavbar'
 import { MenuPanel } from '../components/MenuPanel'
-import { MobileBottomNav } from '../components/MobileBottomNav'
 import { NewDiscussionModal } from '../components/NewDiscussionModal'
 import { NotificationsPanel } from '../components/NotificationsPanel'
 import { TrendingPanel } from '../components/TrendingPanel'
@@ -11,11 +10,13 @@ import { useMediaQuery } from '../hooks/useMediaQuery'
 import { useFeedStore } from '../stores/feedStore'
 import { useNotificationStore } from '../stores/notificationStore'
 import { useUserStore } from '../stores/userStore'
+import { PAGE_SHELL } from './pageShell'
 
-function mainMaxWidth(pathname) {
-  if (pathname === '/explore' || pathname === '/about') return 'max-w-6xl'
-  if (pathname.startsWith('/discussion/')) return 'max-w-5xl'
-  return 'max-w-6xl'
+function mainContentClass(pathname, withTrending) {
+  if (withTrending) return 'min-w-0 flex-1 py-6 lg:py-8'
+  if (pathname === '/explore' || pathname === '/about') return 'mx-auto w-full max-w-6xl flex-1 py-6 lg:py-8'
+  if (pathname.startsWith('/discussion/')) return 'mx-auto w-full max-w-5xl flex-1 py-6 lg:py-8'
+  return 'mx-auto w-full max-w-6xl flex-1 py-6 lg:py-8'
 }
 
 export function AppLayout() {
@@ -30,8 +31,11 @@ export function AppLayout() {
   const recordPostCreated = useUserStore((s) => s.recordPostCreated)
   const googleSub = useUserStore((s) => s.googleSub)
   const googleIdToken = useUserStore((s) => s.googleIdToken)
+  const openSignInPrompt = useUserStore((s) => s.openSignInPrompt)
+  const isSignedIn = useUserStore((s) => s.isSignedIn)
   const syncNotifications = useNotificationStore((s) => s.syncFromServer)
-  const isDesktopNav = useMediaQuery('(min-width: 768px)')
+  const unreadCount = useNotificationStore((s) => s.unreadCount)
+  const isDesktopNav = useMediaQuery('(min-width: 1024px)')
   const isExplore = location.pathname === '/explore'
   const isAbout = location.pathname === '/about'
   const showTrending = !isExplore && !isAbout
@@ -54,16 +58,26 @@ export function AppLayout() {
     window.scrollTo(0, 0)
   }, [location.pathname])
 
-  const anyOverlay = notifOpen || (menuOpen && !isDesktopNav)
+  useEffect(() => {
+    if (!googleSub?.trim() || !googleIdToken?.trim()) return
+    void useUserStore.getState().syncBirthdayFromServer()
+  }, [googleSub, googleIdToken])
 
   async function handleSubmitTopic(data) {
     setSubmitError('')
+    if (!isSignedIn()) {
+      openSignInPrompt()
+      setSubmitError('Sign in with Google to submit a topic.')
+      return
+    }
     if (!googleSub?.trim()) {
+      openSignInPrompt()
       setSubmitError('Sign in with Google to submit a topic.')
       return
     }
     if (!googleIdToken?.trim()) {
-      setSubmitError('Session expired — sign out and sign in again.')
+      openSignInPrompt()
+      setSubmitError('Session expired — sign in again.')
       return
     }
 
@@ -90,7 +104,7 @@ export function AppLayout() {
   }
 
   return (
-    <div className="flex min-h-svh flex-col bg-[var(--page)] pt-[4.25rem] lg:pt-[5rem]">
+    <div className="flex min-h-svh flex-col bg-[var(--page)] pt-14 sm:pt-[3.75rem] lg:pt-20">
       <AppNavbar
         onOpenNotifications={() => {
           setMenuOpen(false)
@@ -103,11 +117,15 @@ export function AppLayout() {
         onNewDiscussion={() => setModalOpen(true)}
       />
 
-      <div className="flex min-w-0 flex-1 flex-col md:flex-row">
+      <div
+        className={`${PAGE_SHELL} flex min-w-0 flex-1 flex-col ${
+          showTrending ? 'lg:flex-row lg:gap-8 xl:gap-10' : ''
+        }`}
+      >
         <AnimatePresence mode="sync">
           <motion.main
             key={location.pathname}
-            className={`mx-auto w-full flex-1 px-4 py-6 sm:px-6 lg:px-8 ${mainMaxWidth(location.pathname)} ${anyOverlay ? '' : 'pb-[calc(4rem+env(safe-area-inset-bottom))]'} md:pb-12`}
+            className={`${mainContentClass(location.pathname, showTrending)} pb-6 md:pb-12`}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
@@ -118,17 +136,21 @@ export function AppLayout() {
         </AnimatePresence>
 
         {showTrending && (
-          <div className="hidden w-[240px] shrink-0 py-6 pr-4 xl:block xl:w-[260px]">
+          <aside className="hidden w-[300px] shrink-0 py-6 lg:block lg:w-[340px] xl:w-[380px]">
             <div className="sticky top-20">
               <TrendingPanel />
             </div>
-          </div>
+          </aside>
         )}
       </div>
 
-      <MobileBottomNav />
-
-      <MenuPanel open={menuOpen} onClose={() => setMenuOpen(false)} />
+      <MenuPanel
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        onNewDiscussion={() => setModalOpen(true)}
+        onOpenNotifications={() => setNotifOpen(true)}
+        unread={unreadCount}
+      />
       <NotificationsPanel open={notifOpen} onClose={() => setNotifOpen(false)} />
       <NewDiscussionModal
         open={modalOpen}

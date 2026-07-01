@@ -15,8 +15,91 @@ import {
   issueStrike,
 } from '../lib/moderationHelpers';
 import { ensureDebateExists } from '../lib/ensureCuratedArticle';
+import { ensureUserRow } from '../lib/ensureUser';
 import { createNotification } from '../lib/notifications';
 import { notifyDebateSubscribers } from '../lib/debateSubscriptions';
+
+async function processCommentModeration(
+  env: Env,
+  opts: {
+    commentId: string;
+    debateId: string;
+    userSub: string;
+    userName: string;
+    text: string;
+    parentId: string | null;
+  },
+): Promise<void> {
+  const { commentId, debateId, userSub, userName, text } = opts;
+  try {
+    const moderation = await moderateContent(text, env);
+
+    if (moderation.action === 'allow') {
+      const article = await env.DB.prepare(`SELECT title FROM articles WHERE id = ?`)
+        .bind(debateId)
+        .first<{ title: string }>();
+      try {
+        await notifyDebateSubscribers(
+          env.DB,
+          debateId,
+          userSub,
+          article?.title ?? 'Discussion',
+          userName,
+        );
+      } catch (notifyErr) {
+        console.error('notifyDebateSubscribers failed:', notifyErr);
+      }
+      return;
+    }
+
+    if (moderation.action === 'flag') {
+      await env.DB.prepare(`UPDATE comments SET moderation_status = 'flagged' WHERE id = ?`)
+        .bind(commentId)
+        .run();
+      await insertCommentFlags(env.DB, commentId, moderation, 'bot');
+      const penalty = await applyModerationPenalty(env.DB, env, userSub, commentId, moderation);
+      try {
+        await createNotification(env.DB, userSub, {
+          type: 'moderation',
+          title: 'Comment flagged for review',
+          body: penalty.message ?? 'Your comment is hidden until an editor reviews it.',
+          discussionId: debateId,
+        });
+      } catch (notifyErr) {
+        console.error('moderation notification failed:', notifyErr);
+      }
+      return;
+    }
+
+    const nowDel = Math.floor(Date.now() / 1000);
+    await env.DB.prepare(
+      `UPDATE comments SET moderation_status = 'auto_deleted', deleted_at = ?, deleted_by = 'bot' WHERE id = ?`,
+    )
+      .bind(nowDel, commentId)
+      .run();
+    await insertCommentFlags(env.DB, commentId, moderation, 'bot');
+    await issueStrike(
+      env.DB,
+      userSub,
+      commentId,
+      moderation.primaryReason ?? 'Comment removed by moderation bot.',
+      'bot',
+    );
+    const penalty = await applyModerationPenalty(env.DB, env, userSub, commentId, moderation);
+    try {
+      await createNotification(env.DB, userSub, {
+        type: 'moderation',
+        title: 'Comment removed by moderation',
+        body: penalty.message ?? 'Your comment was removed for violating community guidelines.',
+        discussionId: debateId,
+      });
+    } catch (notifyErr) {
+      console.error('moderation notification failed:', notifyErr);
+    }
+  } catch (err) {
+    console.error('Background comment moderation failed:', err);
+  }
+}
 
 export const commentsRouter = new Hono<{ Bindings: Env }>();
 
@@ -37,9 +120,7 @@ async function ensureUserExists(
   email: string,
   name: string,
 ) {
-  await c.env.DB.prepare(`INSERT OR IGNORE INTO users (id, email, name) VALUES (?, ?, ?)`)
-    .bind(sub, email, name)
-    .run();
+  await ensureUserRow(c.env.DB, { sub, email, name });
 }
 
 function rowToPublic(
@@ -229,7 +310,23 @@ commentsRouter.post('/:debateId/comments', async (c) => {
     return c.json({ error: 'rate_limited', message: 'Please wait a few seconds before commenting again.' }, 429);
   }
 
-  await ensureUserExists(c, user.sub, user.email, user.name);
+  try {
+    await ensureUserExists(c, user.sub, user.email, user.name);
+  } catch (userErr) {
+    console.error('ensureUserExists failed:', userErr);
+    const row = await c.env.DB.prepare(`SELECT id FROM users WHERE id = ?`)
+      .bind(user.sub)
+      .first<{ id: string }>();
+    if (!row) {
+      return c.json(
+        {
+          error: 'user_setup_failed',
+          message: 'Could not prepare your account. Sign out, sign in again, then retry.',
+        },
+        503,
+      );
+    }
+  }
 
   const modState = await getUserModerationState(c.env.DB, user.sub);
   if (modState.socialBanned) {
@@ -290,97 +387,42 @@ commentsRouter.post('/:debateId/comments', async (c) => {
       .bind(parentId)
       .first<{ user_id: string }>();
     if (parent && parent.user_id !== user.sub) {
-      await createNotification(c.env.DB, parent.user_id, {
-        type: 'reply',
-        title: 'New reply to your comment',
-        body: `${user.name} replied in a discussion you joined.`,
-        discussionId: debateId,
-      });
+      try {
+        await createNotification(c.env.DB, parent.user_id, {
+          type: 'reply',
+          title: 'New reply to your comment',
+          body: `${user.name} replied in a discussion you joined.`,
+          discussionId: debateId,
+        });
+      } catch (notifyErr) {
+        console.error('reply notification failed:', notifyErr);
+      }
     }
   }
 
-  const moderation = await moderateContent(text, c.env);
-
-  if (moderation.action === 'allow') {
-    const article = await c.env.DB.prepare(`SELECT title FROM articles WHERE id = ?`)
-      .bind(debateId)
-      .first<{ title: string }>();
-    await notifyDebateSubscribers(
-      c.env.DB,
+  c.executionCtx.waitUntil(
+    processCommentModeration(c.env, {
+      commentId,
       debateId,
-      user.sub,
-      article?.title ?? 'Discussion',
-      user.name,
-    );
-
-    return c.json({
-      id: commentId,
-      body: text,
-      userId: user.sub,
-      username: user.name,
+      userSub: user.sub,
+      userName: user.name,
+      text,
       parentId,
-      createdAt: now,
-      replyCount: 0,
-      status: 'visible',
-    });
-  }
-
-  if (moderation.action === 'flag') {
-    await c.env.DB.prepare(`UPDATE comments SET moderation_status = 'flagged' WHERE id = ?`)
-      .bind(commentId)
-      .run();
-    await insertCommentFlags(c.env.DB, commentId, moderation, 'bot');
-    const penalty = await applyModerationPenalty(c.env.DB, c.env, user.sub, commentId, moderation);
-
-    await createNotification(c.env.DB, user.sub, {
-      type: 'moderation',
-      title: 'Comment flagged for review',
-      body: penalty.message ?? 'Your comment is hidden until an editor reviews it.',
-      discussionId: debateId,
-    });
-
-    return c.json({
-      id: commentId,
-      status: 'flagged',
-      pendingReview: true,
-      message: penalty.message ?? 'Your comment has been flagged for review and is hidden until an editor approves it.',
-      warningIssued: penalty.warningIssued,
-      timeoutUntil: penalty.timeoutUntil,
-    });
-  }
-
-  const nowDel = Math.floor(Date.now() / 1000);
-  await c.env.DB.batch([
-    c.env.DB.prepare(
-      `UPDATE comments SET moderation_status = 'auto_deleted', deleted_at = ?, deleted_by = 'bot' WHERE id = ?`,
-    ).bind(nowDel, commentId),
-  ]);
-  await insertCommentFlags(c.env.DB, commentId, moderation, 'bot');
-  await issueStrike(
-    c.env.DB,
-    user.sub,
-    commentId,
-    moderation.primaryReason ?? 'Comment removed by moderation bot.',
-    'bot',
+    }),
   );
-  const penalty = await applyModerationPenalty(c.env.DB, c.env, user.sub, commentId, moderation);
-
-  await createNotification(c.env.DB, user.sub, {
-    type: 'moderation',
-    title: 'Comment removed by moderation',
-    body: penalty.message ?? 'Your comment was removed for violating community guidelines.',
-    discussionId: debateId,
-  });
 
   return c.json({
     id: commentId,
-    status: 'removed',
-    message: penalty.message ?? 'Your comment was removed by the moderation system.',
-    socialBanned: penalty.socialBanned,
-    timeoutUntil: penalty.timeoutUntil,
+    body: text,
+    userId: user.sub,
+    username: user.name,
+    parentId,
+    createdAt: now,
+    replyCount: 0,
+    status: 'visible',
   });
   } catch (err) {
-    console.error('POST comment failed:', err);
+    console.error('POST comment failed:', err instanceof Error ? err.message : err, err);
     return c.json({ error: 'internal_error', message: 'Could not post comment. Try again shortly.' }, 500);
   }
 });

@@ -61,7 +61,7 @@ userActivityRouter.post('/saved/:articleId', async (c) => {
   }
 
   const articleId = c.req.param('articleId');
-  const ok = await saveDebateForUser(c.env.DB, googleUser.sub, articleId);
+  const ok = await saveDebateForUser(c.env.DB, googleUser, articleId);
   if (!ok) return c.json({ error: 'article_not_found' }, 404);
 
   return c.json({ saved: true, articleId });
@@ -93,7 +93,7 @@ userActivityRouter.post('/subscriptions/:articleId', async (c) => {
   }
 
   const articleId = c.req.param('articleId');
-  const ok = await subscribeToDebate(c.env.DB, googleUser.sub, articleId);
+  const ok = await subscribeToDebate(c.env.DB, googleUser, articleId);
   if (!ok) return c.json({ error: 'article_not_found' }, 404);
 
   return c.json({ subscribed: true, articleId });

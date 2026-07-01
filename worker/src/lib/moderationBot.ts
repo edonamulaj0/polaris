@@ -36,6 +36,12 @@ RESPONSE SCHEMA:
 
 If action is "allow" and no flags, return: { "action": "allow", "severity": "mild", "flags": [] }`;
 
+const ALLOW_RESULT: ModerationResult = {
+  action: 'allow',
+  severity: 'mild',
+  flags: [],
+};
+
 const FALLBACK_FLAG: ModerationResult = {
   action: 'flag',
   severity: 'mild',
@@ -120,7 +126,7 @@ export async function moderateContent(body: string, env: Env): Promise<Moderatio
   }
 
   if (!env.ANTHROPIC_API_KEY) {
-    return FALLBACK_FLAG;
+    return ALLOW_RESULT;
   }
 
   try {
@@ -140,7 +146,8 @@ export async function moderateContent(body: string, env: Env): Promise<Moderatio
     });
 
     if (!res.ok) {
-      return FALLBACK_FLAG;
+      console.error('moderation API error:', res.status);
+      return ALLOW_RESULT;
     }
 
     const data = (await res.json()) as {
@@ -148,10 +155,11 @@ export async function moderateContent(body: string, env: Env): Promise<Moderatio
     };
     const text = data.content?.find((c) => c.type === 'text')?.text ?? '';
     const parsed = parseModerationJson(text);
-    const result = parsed ?? FALLBACK_FLAG;
+    const result = parsed ?? ALLOW_RESULT;
     return applyMaskingPreCheck(body, result);
-  } catch {
-    return FALLBACK_FLAG;
+  } catch (err) {
+    console.error('moderation fetch failed:', err);
+    return ALLOW_RESULT;
   }
 }
 

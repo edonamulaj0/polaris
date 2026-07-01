@@ -4,6 +4,7 @@
 import type { D1Database } from '@cloudflare/workers-types';
 import { ensureDebateExists } from './ensureCuratedArticle';
 import { getSubscribedDebateIds } from './debateSubscriptions';
+import { ensureUserRow } from './ensureUser';
 
 const VALID_STANCES = ['For', 'Against', 'Neutral'] as const;
 const ACTIVITY_LIMIT = 200;
@@ -220,17 +221,19 @@ export async function syncClientActivity(
 
 export async function saveDebateForUser(
   db: D1Database,
-  userId: string,
+  user: { sub: string; email: string; name: string },
   articleId: string,
 ): Promise<boolean> {
   const exists = await ensureDebateExists(db, articleId);
   if (!exists) return false;
 
+  await ensureUserRow(db, user);
+
   await db
     .prepare(
       `INSERT OR IGNORE INTO user_saved_debates (user_id, article_id) VALUES (?, ?)`,
     )
-    .bind(userId, articleId)
+    .bind(user.sub, articleId)
     .run();
 
   return true;

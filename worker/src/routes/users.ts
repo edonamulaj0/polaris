@@ -8,6 +8,7 @@ import { extractBearerToken, verifyGoogleToken } from '../lib/auth';
 import { createEditorSession } from '../lib/editorSession';
 import { hashEditorPin, verifyEditorPin } from '../lib/pinHash';
 import { requireGoogleUser } from '../lib/requireGoogleUser';
+import { ensureUserRow } from '../lib/ensureUser';
 import { getUserModerationState } from '../lib/moderationHelpers';
 import { userActivityRouter } from './userActivity';
 import { createNotification, rowToNotification, type NotificationRow } from '../lib/notifications';
@@ -218,16 +219,18 @@ usersRouter.post('/me/birthday', async (c) => {
     return c.json({ error: 'missing_birth_date' }, 400);
   }
 
+  await ensureUserRow(c.env.DB, auth.user);
+
   const user = await c.env.DB.prepare(`SELECT * FROM users WHERE id = ?`)
     .bind(auth.user.sub)
     .first<UserRow>();
 
   if (!user) {
-    return c.json({ error: 'user_not_found' }, 404);
+    return c.json({ error: 'user_not_found' }, 500);
   }
 
   if (user.birth_locked === 1) {
-    return c.json({ error: 'birthday_already_set' }, 409);
+    return c.json({ error: 'birthday_already_set', birthDate: user.birth_date ?? undefined }, 409);
   }
 
   const validationError = validateBirthDate(body.birthDate);

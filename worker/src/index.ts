@@ -49,7 +49,9 @@ app.route('/api/debates', debatesRouter);
 app.route('/api/comments', commentDeleteRouter);
 
 export default {
-  fetch: app.fetch,
+  fetch(request: Request, env: Env, ctx: ExecutionContext) {
+    return app.fetch(request, env, ctx);
+  },
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(runIngest(env));
   },

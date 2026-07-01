@@ -1,5 +1,7 @@
 /** @typedef {{ savedDebateIds?: string[], stanceHistory?: object[], commentHistory?: object[], activityFeed?: object[], joinedDiscussionIds?: string[], stats?: object }} ActivityData */
 
+import { authErrorFromResponse } from '../lib/authErrors'
+
 function authHeaders(token) {
   return {
     'Content-Type': 'application/json',
@@ -90,13 +92,13 @@ export async function postVote(token, articleId, stance) {
     headers: authHeaders(token),
     body: JSON.stringify({ stance }),
   })
+  const data = await res.json().catch(() => ({}))
   if (!res.ok) {
-    const data = await res.json().catch(() => ({}))
-    const err = new Error(data.error || 'vote_failed')
+    const err = new Error(authErrorFromResponse(res, data))
     /** @type {Record<string, unknown>} */ (err).code = data.error
     throw err
   }
-  return res.json()
+  return data
 }
 
 /** @param {ActivityData} data */

@@ -191,7 +191,7 @@ function DiscussionPageInner({ id }) {
   }
 
   return (
-    <div className="pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-12">
+    <div className="pb-12">
       <Link
         to="/"
         className="mb-6 inline-flex items-center gap-2 text-sm text-[var(--muted)] transition-colors hover:text-[var(--text)]"
@@ -282,6 +282,18 @@ function DiscussionPageInner({ id }) {
 
       <ArticleBody article={post.article} bothSides={post.bothSides} /> {/* [ART-3] */}
 
+      {!isPending && !isDesktop && (
+        <div className="sticky bottom-0 z-40 -mx-4 border-t border-[var(--border)] bg-[var(--page)]/95 px-4 py-3 backdrop-blur-md sm:-mx-6">
+          <VoteWidget
+            postId={post.id}
+            postTitle={post.title}
+            category={post.category}
+            stanceDistribution={post.stanceDistribution}
+            mobileBar
+          />
+        </div>
+      )}
+
       {sourcesList.length > 0 && (
         <div className="mt-10 border-t border-[var(--border)] pt-8">
           <h2 className="mb-5 font-mono text-[10px] uppercase tracking-widest text-[var(--muted)]">
@@ -319,18 +331,6 @@ function DiscussionPageInner({ id }) {
           debateTitle={post.title}
           debateCategory={post.category}
         />
-      )}
-
-      {!isPending && !isDesktop && (
-        <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] left-0 right-0 z-[50] border-t border-[var(--border)] bg-[var(--page)]/95 px-4 py-3 backdrop-blur-md lg:hidden">
-          <VoteWidget
-            postId={post.id}
-            postTitle={post.title}
-            category={post.category}
-            stanceDistribution={post.stanceDistribution}
-            compact={false}
-          />
-        </div>
       )}
     </div>
   )

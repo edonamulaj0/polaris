@@ -1,4 +1,6 @@
 import { createNotification } from './notifications';
+import { ensureDebateExists } from './ensureCuratedArticle';
+import { ensureUserRow } from './ensureUser';
 
 function truncate(text: string, max: number): string {
   const t = text.trim();
@@ -36,20 +38,19 @@ export async function notifyDebateSubscribers(
 
 export async function subscribeToDebate(
   db: D1Database,
-  userId: string,
+  user: { sub: string; email: string; name: string },
   articleId: string,
 ): Promise<boolean> {
-  const exists = await db
-    .prepare(`SELECT id FROM articles WHERE id = ?`)
-    .bind(articleId)
-    .first<{ id: string }>();
+  const exists = await ensureDebateExists(db, articleId);
   if (!exists) return false;
+
+  await ensureUserRow(db, user);
 
   await db
     .prepare(
       `INSERT OR IGNORE INTO debate_subscriptions (user_id, article_id) VALUES (?, ?)`,
     )
-    .bind(userId, articleId)
+    .bind(user.sub, articleId)
     .run();
   return true;
 }

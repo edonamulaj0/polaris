@@ -20,7 +20,7 @@ export function TrendingPanel({ category = null, posts: postsProp = null }) {
   }, [posts, category])
 
   return (
-    <aside className="rounded-3xl bg-[var(--surface)] p-5 shadow-[var(--shadow-card)]">
+    <div className="rounded-3xl bg-[var(--surface)] p-5 shadow-[var(--shadow-card)]">
       <h2 className="font-heading mb-2 text-lg font-semibold tracking-wide text-[var(--text-hi)]">
         Trending
       </h2>
@@ -30,7 +30,7 @@ export function TrendingPanel({ category = null, posts: postsProp = null }) {
           <TrendingRow key={p.id} rank={i + 1} post={p} comments={p.num_comments || 0} />
         ))}
       </ol>
-    </aside>
+    </div>
   )
 }
 

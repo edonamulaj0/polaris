@@ -42,24 +42,21 @@ function CompassRoseStar({ className = '', uid }) {
   )
 }
 
-export function LogoMark({ className = '', showTagline = true, compact = false }) {
+export function LogoMark({ className = '' }) {
   const uid = useId().replace(/:/g, '')
 
   return (
-    <Link to="/" className={`group inline-flex select-none ${compact ? 'items-center gap-2.5' : 'flex-col items-start gap-0.5'} ${className}`}>
-      <span className="inline-flex items-center gap-2.5">
-        <CompassRoseStar uid={uid} className="h-8 w-8 shrink-0 transition-transform duration-300 group-hover:scale-105" />
-        <span
-          className="font-heading text-xl font-semibold tracking-[0.12em] text-[var(--text-hi)] uppercase leading-none"
-        >
-          Polaris
-        </span>
+    <Link
+      to="/"
+      className={`group inline-flex select-none items-center gap-2.5 ${className}`}
+    >
+      <CompassRoseStar
+        uid={uid}
+        className="h-8 w-8 shrink-0 transition-transform duration-300 group-hover:scale-105"
+      />
+      <span className="truncate font-heading text-xl font-semibold uppercase leading-none tracking-[0.12em] text-[var(--text-hi)]">
+        Polaris
       </span>
-      {showTagline && !compact && (
-        <span className="font-heading ml-[2.625rem] text-[11px] italic text-[var(--muted)] leading-tight">
-          Your Anchor in Polarized Seas
-        </span>
-      )}
     </Link>
   )
 }

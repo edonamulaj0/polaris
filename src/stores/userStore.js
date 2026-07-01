@@ -13,13 +13,14 @@ import {
   fetchActivityData,
   localSyncPayloadFromAccount,
   postActivity,
-  postVote,
   saveDebate,
   syncActivityToServer,
   unsaveDebate,
   subscribeDebate,
   unsubscribeDebate,
 } from '../services/userActivityApi'
+import { isGoogleIdTokenExpired } from '../lib/googleAuth'
+import { authErrorFromResponse } from '../lib/authErrors'
 
 const emptyStats = () => ({
   postsCreated: 0,
@@ -84,6 +85,71 @@ export const useUserStore = create(
       subscribedDiscussionIds: [],
       /** True once server activity has been loaded for the current session */
       activitySynced: false,
+      signInPromptOpen: false,
+
+      openSignInPrompt: () => set({ signInPromptOpen: true }),
+      closeSignInPrompt: () => set({ signInPromptOpen: false }),
+
+      /** Upsert the signed-in Google user in D1 (required before birthday / votes / comments). */
+      ensureUserOnServer: async () => {
+        const token = get().googleIdToken
+        if (!token?.trim()) return false
+        try {
+          const res = await fetch('/api/users', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          })
+          return res.ok
+        } catch {
+          return false
+        }
+      },
+
+      /** Load birthday lock state from the server (required for vote/comment after sign-in). */
+      syncBirthdayFromServer: async () => {
+        const token = get().googleIdToken
+        const sub = get().googleSub
+        if (!token?.trim() || !sub?.trim()) return
+
+        try {
+          await get().ensureUserOnServer()
+          const res = await fetch('/api/users/me/birthday', {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          if (!res.ok) return
+          const data = await res.json()
+          if (data.set) {
+            set({
+              birthLocked: true,
+              birthDate: data.birthDate || get().birthDate,
+            })
+          }
+        } catch {
+          /* offline — keep local state */
+        }
+      },
+
+      /** @returns {boolean} */
+      isSignedIn: () => {
+        const token = get().googleIdToken
+        return Boolean(get().googleSub?.trim() && token?.trim() && !isGoogleIdTokenExpired(token))
+      },
+
+      /** Signed in + birthday on file — required to vote, comment, save. */
+      canParticipate: () => get().isSignedIn() && get().birthLocked,
+
+      /** Run fn when authenticated; otherwise open sign-in modal. @returns {boolean} */
+      requireAuth: (fn) => {
+        if (get().isSignedIn()) {
+          if (typeof fn === 'function') fn()
+          return true
+        }
+        set({ signInPromptOpen: true })
+        return false
+      },
 
       /** Persist current activity slice into accounts[googleSub] (migration cache only) */
       _commitAccount: () => {
@@ -184,7 +250,11 @@ export const useUserStore = create(
           } catch {
             /* upsert best-effort */
           }
+          await get().syncBirthdayFromServer()
           await get().syncAccountFromServer()
+          if (!get().birthLocked) {
+            set({ signInPromptOpen: true })
+          }
         })()
       },
 
@@ -233,6 +303,7 @@ export const useUserStore = create(
         }
 
         try {
+          await get().ensureUserOnServer()
           const res = await fetch('/api/users/me/birthday', {
             method: 'POST',
             headers: {
@@ -274,6 +345,19 @@ export const useUserStore = create(
           activitySynced: false,
           ...applyAccountActivity(emptyAccountActivity()),
         })
+      },
+
+      /** Drop expired ID token but keep profile hints so UI can prompt re-login. */
+      clearExpiredGoogleSession: () => {
+        const token = get().googleIdToken
+        if (!token?.trim() || !isGoogleIdTokenExpired(token)) return false
+        get()._commitAccount()
+        set({
+          googleIdToken: '',
+          activitySynced: false,
+          ...applyAccountActivity(emptyAccountActivity()),
+        })
+        return true
       },
 
       pushActivity: (entry) => {
@@ -345,13 +429,46 @@ export const useUserStore = create(
 
       recordStance: async ({ discussionId, title, category, stance }) => {
         const at = Date.now()
+        try {
+          if (get().clearExpiredGoogleSession()) {
+            get().openSignInPrompt()
+            return {
+              ok: false,
+              error: 'invalid_token',
+              message: 'Your session expired. Sign in again with Google.',
+            }
+          }
+        } catch {
+          /* ignore token parse errors */
+        }
         const token = get().googleIdToken
         if (!token?.trim()) {
+          get().openSignInPrompt()
           return { ok: false, error: 'unauthorized', message: 'Sign in to vote.' }
+        }
+        if (!get().birthLocked) {
+          get().openSignInPrompt()
+          return { ok: false, error: 'birthday_required', message: 'Enter your date of birth to vote.' }
         }
 
         try {
-          const data = await postVote(token, discussionId, stance)
+          const res = await fetch(`/api/articles/${encodeURIComponent(discussionId)}/vote`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ stance }),
+          })
+          const data = await res.json().catch(() => ({}))
+          if (!res.ok) {
+            const code = data.error
+            if (code === 'invalid_token' || code === 'unauthorized') {
+              get().clearExpiredGoogleSession()
+              get().openSignInPrompt()
+            }
+            throw Object.assign(new Error(authErrorFromResponse(res, data)), { code })
+          }
           const h = {
             discussionId,
             stance: data.stance ?? stance,
@@ -387,11 +504,10 @@ export const useUserStore = create(
           })
           return { ok: true, stance: h.stance, distribution: data.distribution }
         } catch (err) {
-          await get().syncAccountFromServer()
           const message =
             err?.code === 'social_banned'
               ? 'Your account cannot vote due to a community guidelines violation.'
-              : 'Could not save your vote.'
+              : err?.message || 'Could not save your vote.'
           return { ok: false, error: err?.code || 'vote_failed', message }
         }
       },
@@ -417,6 +533,14 @@ export const useUserStore = create(
       },
 
       toggleDiscussionLike: async (discussionId, title) => {
+        if (!get().isSignedIn()) {
+          get().openSignInPrompt()
+          return
+        }
+        if (!get().birthLocked) {
+          get().openSignInPrompt()
+          return
+        }
         const token = get().googleIdToken
         const cur = new Set(get().likedDiscussionIds ?? [])
         const wasLiked = cur.has(discussionId)
@@ -468,8 +592,19 @@ export const useUserStore = create(
       isDiscussionLiked: (discussionId) => (get().likedDiscussionIds ?? []).includes(discussionId),
 
       toggleDiscussionSubscribe: async (discussionId, title) => {
+        if (!get().isSignedIn()) {
+          get().openSignInPrompt()
+          return { ok: false, error: 'sign_in_required' }
+        }
+        if (!get().birthLocked) {
+          get().openSignInPrompt()
+          return { ok: false, error: 'birthday_required' }
+        }
         const token = get().googleIdToken
-        if (!token?.trim()) return { ok: false, error: 'sign_in_required' }
+        if (!token?.trim()) {
+          get().openSignInPrompt()
+          return { ok: false, error: 'sign_in_required' }
+        }
 
         const cur = new Set(get().subscribedDiscussionIds ?? [])
         const wasSubscribed = cur.has(discussionId)
@@ -527,9 +662,15 @@ export const useUserStore = create(
         return migrateLegacyAccountState(merged)
       },
       onRehydrateStorage: () => (state) => {
-        if (!state?.googleSub?.trim() || !state?.googleIdToken?.trim()) return
-        queueMicrotask(() => {
-          useUserStore.getState().syncAccountFromServer()
+        if (!state?.googleSub?.trim()) return
+        if (state.googleIdToken?.trim() && isGoogleIdTokenExpired(state.googleIdToken)) {
+          state.googleIdToken = ''
+        }
+        if (!state.googleIdToken?.trim()) return
+        queueMicrotask(async () => {
+          const store = useUserStore.getState()
+          await store.syncBirthdayFromServer()
+          await store.syncAccountFromServer()
         })
       },
       partialize: (s) => ({
