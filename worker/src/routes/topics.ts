@@ -5,6 +5,11 @@ import { Hono, type Context } from 'hono';
 import type { Env, ArticleRow } from '../types';
 import { verifyGoogleToken, extractBearerToken } from '../lib/auth';
 import { rowToPublic, VALID_CATEGORIES, VALID_STANCES } from '../lib/articleHelpers';
+import {
+  formatTimeoutMessage,
+  getUserModerationState,
+} from '../lib/moderationHelpers';
+import { moderateContent } from '../lib/moderationBot';
 
 export const topicsRouter = new Hono<{ Bindings: Env }>();
 
@@ -58,6 +63,30 @@ topicsRouter.post('/', async (c) => {
   }
 
   const description = body.description?.trim() || '';
+
+  const modState = await getUserModerationState(c.env.DB, googleUser.sub);
+  if (modState.socialBanned) {
+    return c.json({
+      error: 'social_banned',
+      message: 'Your account cannot create topics due to a community guidelines violation.',
+    }, 403);
+  }
+  if (!modState.canPostTopics) {
+    const message = modState.timeoutUntil
+      ? formatTimeoutMessage(modState.timeoutUntil)
+      : 'Your ability to post topics is temporarily suspended.';
+    return c.json({ error: 'topic_suspended', message, timeoutUntil: modState.timeoutUntil }, 403);
+  }
+
+  const moderationText = `${title}\n\n${description}`.trim();
+  const moderation = await moderateContent(moderationText, c.env);
+  if (moderation.action === 'auto_delete') {
+    return c.json({
+      error: 'content_rejected',
+      message: moderation.primaryReason ?? 'This topic was rejected by our moderation system.',
+    }, 422);
+  }
+
   const id = await hashSubmissionId(googleUser.sub, title);
 
   // Ensure user row exists for FK

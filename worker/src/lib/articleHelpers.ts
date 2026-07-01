@@ -66,7 +66,18 @@ export function rowToPublic(row: ArticleRow, opts?: RowToPublicOptions): Article
   return base;
 }
 
-export const VALID_CATEGORIES = ['Technology', 'Science', 'Nature'] as const; // [WRK-3]
+export const VALID_CATEGORIES = [
+  'Technology',
+  'Science',
+  'Nature',
+  'Climate & Environment',
+  'Human Rights',
+  'Immigration & Society',
+  'Politics & Governance',
+  'Religion & Ethics',
+  'Education',
+  'Health & Society',
+] as const;
 
 export const VALID_STANCES = ['For', 'Against', 'Neutral'] as const;
 

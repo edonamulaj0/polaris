@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS articles (
   id            TEXT PRIMARY KEY,      -- e.g. 'art-{hash}'
   title         TEXT NOT NULL,
-  category      TEXT NOT NULL CHECK(category IN ('Technology','Science','Nature')),
+  category      TEXT NOT NULL,
   image_url     TEXT,
   lede          TEXT NOT NULL,         -- opening paragraph
   background    TEXT NOT NULL,         -- context/history paragraph

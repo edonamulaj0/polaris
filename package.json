@@ -21,6 +21,7 @@
     "media-monitor": "node scripts/mediaMonitor.js",
     "fetch-guardian": "node scripts/fetchGuardianBatch.js",
     "build-articles": "node scripts/buildArticleSeed.js",
+    "seed-curated": "node scripts/generateCuratedSeed.mjs",
     "seed-articles": "npm run fetch-guardian && npm run build-articles",
     "worker:dev": "npm run dev --prefix worker",
     "worker:deploy": "npm run deploy --prefix worker",
@@ -30,6 +31,8 @@
   "dependencies": {
     "@google/genai": "^1.52.0",
     "@react-oauth/google": "^0.13.5",
+    "@tanstack/react-query": "^5.101.0",
+    "date-fns": "^4.4.0",
     "framer-motion": "^12.38.0",
     "jwt-decode": "^4.0.0",
     "react": "^19.2.4",

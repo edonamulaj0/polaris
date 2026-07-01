@@ -4,8 +4,34 @@
 import { Hono } from 'hono';
 import type { Env, UserRow } from '../types';
 import { validateBirthDate } from '../lib/birthdayHelpers';
+import { extractBearerToken, verifyGoogleToken } from '../lib/auth';
+import { getUserModerationState } from '../lib/moderationHelpers';
 
 export const usersRouter = new Hono<{ Bindings: Env }>(); // [WRK-2]
+
+usersRouter.get('/me/moderation-state', async (c) => {
+  const token = extractBearerToken(c.req.header('Authorization'));
+  if (!token) return c.json({ error: 'unauthorized' }, 401);
+  try {
+    const user = await verifyGoogleToken(token, c.env);
+    const state = await getUserModerationState(c.env.DB, user.sub);
+    return c.json({
+      userId: user.sub,
+      strikeCount: state.strikeCount,
+      commentBlocked: state.commentBlocked,
+      banned: state.banned,
+      socialBanned: state.socialBanned,
+      warningCount: state.warningCount,
+      timeoutCount: state.timeoutCount,
+      timeoutUntil: state.timeoutUntil,
+      canComment: state.canComment,
+      canPostTopics: state.canPostTopics,
+      canVote: state.canVote,
+    });
+  } catch {
+    return c.json({ error: 'invalid_token' }, 401);
+  }
+});
 
 usersRouter.post('/', async (c) => {
   const body = await c.req.json<{ sub: string; email: string; name: string }>(); // [WRK-2]

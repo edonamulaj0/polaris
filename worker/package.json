@@ -7,8 +7,16 @@
     "deploy": "wrangler deploy",
     "db:apply": "wrangler d1 execute polaris-db --remote --file=schema.sql",
     "db:apply:local": "wrangler d1 execute polaris-db --local --file=schema.sql",
-    "db:migrate": "wrangler d1 execute polaris-db --remote --file=migrations/001_topic_submissions.sql",
-    "db:migrate:local": "wrangler d1 execute polaris-db --local --file=migrations/001_topic_submissions.sql"
+    "db:migrate": "wrangler d1 execute polaris-db --remote --file=migrations/001_topic_submissions.sql && wrangler d1 execute polaris-db --remote --file=migrations/002_comments.sql",
+    "db:migrate:categories:local": "wrangler d1 execute polaris-db --local --file=migrations/004_expand_categories.sql",
+    "db:migrate:curated:local": "wrangler d1 execute polaris-db --local --file=migrations/005_seed_curated_debates.sql",
+    "db:migrate:categories": "wrangler d1 execute polaris-db --remote --file=migrations/004_expand_categories.sql",
+    "db:migrate:curated": "wrangler d1 execute polaris-db --remote --file=migrations/005_seed_curated_debates.sql",
+    "db:migrate:all:local": "npm run db:migrate:local && npm run db:migrate:categories:local && npm run db:migrate:curated:local",
+    "db:migrate:comments": "wrangler d1 execute polaris-db --remote --file=migrations/002_comments.sql",
+    "db:migrate:comments:local": "wrangler d1 execute polaris-db --local --file=migrations/002_comments.sql",
+    "db:migrate:tiers": "wrangler d1 execute polaris-db --remote --file=migrations/003_moderation_tiers.sql",
+    "db:migrate:tiers:local": "wrangler d1 execute polaris-db --local --file=migrations/003_moderation_tiers.sql"
   },
   "dependencies": {
     "hono": "^4.6.0"

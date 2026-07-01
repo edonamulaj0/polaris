@@ -5,6 +5,7 @@ import { SkeletonCard } from '../components/SkeletonCard'
 import { FeedSortControls } from '../components/FeedSortControls'
 import { TopicExplainerBanner } from '../components/TopicExplainerBanner'
 import { TrendingStrip } from '../components/TrendingStrip'
+import { WeeklyDebateBanner } from '../components/WeeklyDebateBanner'
 import { orderPostsForDisplay } from '../lib/feedOrdering'
 
 export function HomePage() {
@@ -70,10 +71,11 @@ export function HomePage() {
         </h1>
         <hr className="signal mt-4" />
         <p className="mt-3 text-sm text-[var(--muted)] font-body">
-          AI-gathered discussions on technology & science — both sides explained, human-verified.
+          Curated debates and AI-gathered news — both sides explained, human-verified where noted.
         </p>
       </header>
       {hasGdelt && <TopicExplainerBanner />}
+      <WeeklyDebateBanner className="mb-8" />
       <div className="mb-8 -mx-4 sm:-mx-6 lg:hidden">
         <TrendingStrip />
       </div>

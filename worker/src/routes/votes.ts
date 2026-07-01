@@ -5,6 +5,7 @@ import { Hono } from 'hono';
 import type { Env } from '../types';
 import { verifyGoogleToken } from '../lib/auth';
 import { getVoteDistribution, syncArticleStanceCounts } from '../lib/voteHelpers';
+import { getUserModerationState } from '../lib/moderationHelpers';
 
 export const votesRouter = new Hono<{ Bindings: Env }>(); // [WRK-4]
 
@@ -25,6 +26,14 @@ votesRouter.post('/:id/vote', async (c) => {
     googleUser = await verifyGoogleToken(token, c.env); // [WRK-4]
   } catch {
     return c.json({ error: 'invalid_token' }, 401); // [WRK-4]
+  }
+
+  const modState = await getUserModerationState(c.env.DB, googleUser.sub);
+  if (!modState.canVote) {
+    return c.json({
+      error: 'social_banned',
+      message: 'Your account cannot vote due to a community guidelines violation.',
+    }, 403);
   }
 
   const articleId = c.req.param('id'); // [WRK-4]

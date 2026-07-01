@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 import { MOCK_DISCUSSIONS } from '../data/mockDiscussions'
+import { CURATED_DEBATES } from '../data/curatedDebates'
+import { postMatchesTopic } from '../data/exploreTopics'
 
 /** [FE-1] Map Worker ArticlePublic to card-compatible post shape */
 function normalizeArticle(article) {
@@ -22,6 +24,19 @@ function mockPosts() {
   return MOCK_DISCUSSIONS.map((p) => ({ ...p, sources: [...(p.sources || [])] }))
 }
 
+function mergePosts(apiPosts, curated = CURATED_DEBATES) {
+  const byId = new Map()
+  for (const p of curated.map(normalizeArticle)) {
+    byId.set(p.id, p)
+  }
+  for (const p of apiPosts) {
+    if (!byId.has(p.id)) byId.set(p.id, p)
+  }
+  return [...byId.values()].sort(
+    (a, b) => (b.createdUtc ?? b.publishedAt ?? 0) - (a.createdUtc ?? a.publishedAt ?? 0),
+  )
+}
+
 /** Curated Guardian corpus: public/articles.json (no API keys required) */
 async function loadStaticArticles() {
   try {
@@ -39,44 +54,43 @@ async function loadStaticArticles() {
   }
 }
 
-/** [CAT-2] Legacy mock categories → new labels for fallback filtering */
+/** @deprecated use postMatchesTopic from exploreTopics.js */
 function mockMatchesCategory(post, cat) {
-  if (post.category === cat) return true
-  if (cat === 'Technology' && post.category === 'Tech') return true
-  return false
+  return postMatchesTopic(post, cat)
 }
 
 export const useFeedStore = create((set, get) => ({
   posts: [],
-  /** Start true so deep-linked discussion pages wait for bootstrap instead of flashing “not found”. */
+  /** Full merged pool (API + curated) for client-side Explore filtering */
+  allPosts: [],
   loading: true,
   loadingMore: false,
   hasMore: false,
   nextCursor: null,
   error: null,
   lastRefresh: 0,
-  /** [EXP-2] When set, loadMore appends within this category */
   activeCategory: null,
-  /** Cached preview articles (pending, owner-only) keyed by id */
   previewById: {},
 
   setPosts: (posts) => set({ posts }),
 
   updatePost: (id, patch) => {
+    const mapPatch = (list) => list.map((p) => (p.id === id ? { ...p, ...patch } : p))
     set({
-      posts: get().posts.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+      posts: mapPatch(get().posts),
+      allPosts: mapPatch(get().allPosts),
     })
   },
 
   updateVoteDistribution: (articleId, distribution) => {
+    const mapDist = (list) =>
+      list.map((p) => (p.id === articleId ? { ...p, stanceDistribution: distribution } : p))
     set({
-      posts: get().posts.map((p) =>
-        p.id === articleId ? { ...p, stanceDistribution: distribution } : p,
-      ),
+      posts: mapDist(get().posts),
+      allPosts: mapDist(get().allPosts),
     })
   },
 
-  /** [WRK-6] POST user topic to Worker — returns { id, status } or throws */
   submitTopic: async (data, idToken) => {
     const res = await fetch('/api/topics', {
       method: 'POST',
@@ -108,7 +122,6 @@ export const useFeedStore = create((set, get) => ({
     return res.json()
   },
 
-  /** [WRK-6] Fetch pending article preview for submitter */
   fetchArticlePreview: async (id, idToken) => {
     const cached = get().previewById[id]
     if (cached) return cached
@@ -125,29 +138,33 @@ export const useFeedStore = create((set, get) => ({
   },
 
   bootstrap: async () => {
-    set({ loading: true, error: null, activeCategory: null }) // [EXP-2]
+    set({ loading: true, error: null, activeCategory: null })
     try {
-      const res = await fetch('/api/articles?limit=50') // [FE-1]
+      const res = await fetch('/api/articles?limit=50')
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const { articles, nextCursor } = await res.json() // [FE-1]
+      const { articles, nextCursor } = await res.json()
       if (articles?.length > 0) {
+        const merged = mergePosts(articles.map(normalizeArticle).filter(isPublicFeedPost))
         set({
-          posts: articles.map(normalizeArticle).filter(isPublicFeedPost), // [FE-1]
-          nextCursor: nextCursor ?? null, // [FE-1]
-          hasMore: nextCursor != null, // [FE-1]
-          loading: false, // [FE-1]
-          lastRefresh: Date.now(), // [FE-1]
+          allPosts: merged,
+          posts: merged,
+          nextCursor: nextCursor ?? null,
+          hasMore: nextCursor != null,
+          loading: false,
+          lastRefresh: Date.now(),
         })
         return
       }
     } catch {
-      /* fall through to static JSON */
+      /* fall through */
     }
 
     const staticFeed = await loadStaticArticles()
     if (staticFeed) {
+      const merged = mergePosts(staticFeed.articles.map(normalizeArticle).filter(isPublicFeedPost))
       set({
-        posts: staticFeed.articles.map(normalizeArticle).filter(isPublicFeedPost),
+        allPosts: merged,
+        posts: merged,
         nextCursor: staticFeed.nextCursor,
         hasMore: staticFeed.nextCursor != null,
         loading: false,
@@ -157,88 +174,78 @@ export const useFeedStore = create((set, get) => ({
       return
     }
 
+    const merged = mergePosts(mockPosts().filter(isPublicFeedPost))
     set({
-      posts: mockPosts().filter(isPublicFeedPost), // [FE-1]
-      hasMore: false, // [FE-1]
-      nextCursor: null, // [FE-1]
-      loading: false, // [FE-1]
+      allPosts: merged,
+      posts: merged,
+      hasMore: false,
+      nextCursor: null,
+      loading: false,
       error: 'Feed unavailable',
-      lastRefresh: Date.now(), // [FE-1]
+      lastRefresh: Date.now(),
     })
   },
 
   loadMore: async () => {
-    const { loadingMore, hasMore, nextCursor, posts, activeCategory } = get() // [EXP-2]
-    if (loadingMore || !hasMore || nextCursor == null) return // [FE-1]
-    set({ loadingMore: true }) // [FE-1]
+    const { loadingMore, hasMore, nextCursor, posts, allPosts, activeCategory } = get()
+    if (loadingMore || !hasMore || nextCursor == null || activeCategory) return
+    set({ loadingMore: true })
     try {
-      const catQs = activeCategory
-        ? `&category=${encodeURIComponent(activeCategory)}`
-        : '' // [EXP-2]
-      const res = await fetch(`/api/articles?cursor=${nextCursor}&limit=20${catQs}`) // [EXP-2]
+      const res = await fetch(`/api/articles?cursor=${nextCursor}&limit=20`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const { articles, nextCursor: nc } = await res.json() // [FE-1]
+      const { articles, nextCursor: nc } = await res.json()
       if (articles?.length > 0) {
+        const merged = mergePosts(
+          [...allPosts, ...articles.map(normalizeArticle).filter(isPublicFeedPost)],
+        )
         set({
-          posts: [
-            ...posts,
-            ...articles.map(normalizeArticle).filter(isPublicFeedPost),
-          ], // [FE-1]
-          nextCursor: nc ?? null, // [FE-1]
-          hasMore: nc != null, // [FE-1]
-          loadingMore: false, // [FE-1]
-          lastRefresh: Date.now(), // [FE-1]
+          allPosts: merged,
+          posts: merged,
+          nextCursor: nc ?? null,
+          hasMore: nc != null,
+          loadingMore: false,
+          lastRefresh: Date.now(),
         })
         return
       }
     } catch {
       /* static feed is single-page */
     }
-    set({ loadingMore: false, hasMore: false }) // [FE-1]
+    set({ loadingMore: false, hasMore: false })
   },
 
-  fetchByCategory: async (cat) => {
-    set({ loading: true, error: null, activeCategory: cat }) // [EXP-2]
-    try {
-      const res = await fetch(
-        `/api/articles?category=${encodeURIComponent(cat)}&limit=50`,
-      ) // [FE-1]
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const { articles, nextCursor } = await res.json() // [FE-1]
-      if (articles?.length > 0) {
-        set({
-          posts: articles.map(normalizeArticle).filter(isPublicFeedPost), // [FE-1]
-          nextCursor: nextCursor ?? null, // [FE-1]
-          hasMore: nextCursor != null, // [FE-1]
-          loading: false, // [FE-1]
-          lastRefresh: Date.now(), // [FE-1]
-        })
-        return
-      }
-    } catch {
-      /* static fallback */
+  /** Client-side topic filter — works for curated debates and legacy API categories */
+  fetchByTopic: async (topicId) => {
+    set({ loading: true, error: null, activeCategory: topicId })
+
+    let pool = get().allPosts
+    if (!pool.length) {
+      await get().bootstrap()
+      pool = get().allPosts
     }
 
-    const staticFeed = await loadStaticArticles()
-    if (staticFeed) {
-      const filtered = staticFeed.articles.filter((a) => a.category === cat)
-      set({
-        posts: filtered.map(normalizeArticle).filter(isPublicFeedPost),
-        nextCursor: null,
-        hasMore: false,
-        loading: false,
-        error: null,
-        lastRefresh: Date.now(),
-      })
-      return
-    }
-
+    const filtered = pool.filter((p) => postMatchesTopic(p, topicId) && isPublicFeedPost(p))
     set({
-      posts: mockPosts().filter((p) => mockMatchesCategory(p, cat)).filter(isPublicFeedPost), // [FE-1]
-      hasMore: false, // [FE-1]
-      nextCursor: null, // [FE-1]
-      loading: false, // [FE-1]
-      error: 'Feed unavailable', // [FE-1]
+      posts: filtered,
+      activeCategory: topicId,
+      hasMore: false,
+      nextCursor: null,
+      loading: false,
+      lastRefresh: Date.now(),
     })
   },
+
+  /** @deprecated use fetchByTopic */
+  fetchByCategory: async (cat) => get().fetchByTopic(cat),
 }))
+
+export function resolveFeedPost(id) {
+  const decoded = decodeURIComponent(id)
+  const { allPosts, posts, previewById } = useFeedStore.getState()
+  const pools = [allPosts, posts, Object.values(previewById)]
+  for (const pool of pools) {
+    const hit = pool.find((p) => p.id === id || p.id === decoded)
+    if (hit) return hit
+  }
+  return null
+}

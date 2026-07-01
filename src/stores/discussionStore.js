@@ -1,6 +1,7 @@
 import { create } from 'zustand'
+import { getCuratedDebate } from '../data/curatedDebates'
 import { MOCK_DISCUSSIONS } from '../data/mockDiscussions'
-import { useFeedStore } from './feedStore'
+import { resolveFeedPost } from './feedStore'
 
 const LS_COMMENTS = 'polaris_thread_'
 
@@ -23,10 +24,11 @@ function saveThread(postId, comments) {
 
 function resolvePost(id) {
   const decoded = decodeURIComponent(id)
-  const feed = useFeedStore.getState().posts
   return (
-    feed.find((p) => p.id === id) ||
-    feed.find((p) => p.id === decoded) ||
+    getCuratedDebate(id) ||
+    getCuratedDebate(decoded) ||
+    resolveFeedPost(id) ||
+    resolveFeedPost(decoded) ||
     MOCK_DISCUSSIONS.find((p) => p.id === id || p.id === decoded) ||
     null
   )

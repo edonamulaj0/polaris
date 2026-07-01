@@ -1,12 +1,15 @@
 import { motion, useScroll, useTransform } from 'framer-motion'
 import { useLayoutEffect, useMemo, useState, useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { CommentSection } from '../components/CommentSection'
 import { CivilityBadge } from '../components/CivilityBadge'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { StanceBar } from '../components/StanceBar'
 import { VerifiedBadge } from '../components/VerifiedBadge'
 import { VoteWidget } from '../components/VoteWidget'
+import { getCuratedDebate } from '../data/curatedDebates'
 import { MOCK_DISCUSSIONS } from '../data/mockDiscussions'
+import { resolveFeedPost } from '../stores/feedStore'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { formatSource } from '../lib/displayUtils'
 import { useDiscussionStore } from '../stores/discussionStore'
@@ -107,10 +110,14 @@ function DiscussionPageInner({ id }) {
 
   const decodedId = id ? decodeURIComponent(id) : null
   const feedPost =
+    getCuratedDebate(id) ||
+    getCuratedDebate(decodedId) ||
     feedPosts.find((p) => p.id === id) ||
     feedPosts.find((p) => p.id === decodedId) ||
     previewById[id] ||
     previewById[decodedId] ||
+    resolveFeedPost(id) ||
+    resolveFeedPost(decodedId) ||
     MOCK_DISCUSSIONS.find((p) => p.id === id || p.id === decodedId) ||
     null
   const lookupId = feedPost?.id ?? id
@@ -303,6 +310,8 @@ function DiscussionPageInner({ id }) {
           </ul>
         </div>
       )}
+
+      {!isPending && <CommentSection debateId={post.id} />}
 
       {!isPending && !isDesktop && (
         <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] left-0 right-0 z-[50] border-t border-[var(--border)] bg-[var(--page)]/95 px-4 py-3 backdrop-blur-md lg:hidden">

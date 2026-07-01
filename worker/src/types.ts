@@ -4,10 +4,13 @@
 export interface Env {
   DB: D1Database;
   AI: Ai;
+  RATE_LIMIT_KV?: KVNamespace;
+  EMAIL?: SendEmail;
   GUARDIAN_API_KEY: string;
   GOOGLE_CLIENT_ID: string;
   GEMINI_API_KEY?: string; // [ART-2] optional fallback for synthesis
-  EDITOR_SECRET?: string; // [WRK-6] server-side editor auth
+  ANTHROPIC_API_KEY?: string;
+  EMAIL_FROM?: string; // verified sending domain address
   ENVIRONMENT: string;
 }
 

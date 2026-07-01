@@ -1,5 +1,16 @@
 /** Canonical category filters for Explore (client-side). */
-export const EXPLORE_CATEGORIES = ['All', 'Technology', 'Science', 'Nature'] // [CAT-1]
+export const EXPLORE_CATEGORIES = [
+  'All',
+  'Technology',
+  'Science',
+  'Climate & Environment',
+  'Human Rights',
+  'Immigration & Society',
+  'Politics & Governance',
+  'Religion & Ethics',
+  'Education',
+  'Health & Society',
+]
 
 /** @typedef {'relevance' | 'recent' | 'popular'} FeedSortMode */
 

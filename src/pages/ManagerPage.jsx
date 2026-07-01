@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { IoLockClosedOutline, IoCheckmarkCircleOutline, IoCloseCircleOutline, IoPencilOutline } from 'react-icons/io5'
 import { VerifiedBadge } from '../components/VerifiedBadge'
+import { ModerationPanel, useFlaggedCount } from '../components/editor/ModerationPanel'
 
 const MANAGER_PIN_KEY = 'polaris_mgr_pin'
-const EDITOR_KEY_STORAGE = 'polaris_editor_key'
 
-/** [REFACTOR S-2] SHA-256 digest — never store plaintext PIN in localStorage */
+/** SHA-256 digest — never store plaintext PIN in localStorage */
 async function hashPin(pin) {
   const data = new TextEncoder().encode(pin)
   const hashBuffer = await crypto.subtle.digest('SHA-256', data)
@@ -16,27 +16,13 @@ async function hashPin(pin) {
     .join('')
 }
 
-async function verifyEditorKey(key) {
-  const res = await fetch('/api/editor/articles?filter=pending', {
-    headers: { Authorization: `Bearer ${key}` },
-  })
-  if (res.status === 401) return { ok: false, error: 'Invalid editor API key.' }
-  if (!res.ok) return { ok: false, error: 'Could not reach editor API.' }
-  return { ok: true }
-}
-
 function PinGate({ onUnlock }) {
   const [input, setInput] = useState('')
-  const [editorKeyDraft, setEditorKeyDraft] = useState('')
   const [mode, setMode] = useState(() =>
     localStorage.getItem(MANAGER_PIN_KEY) ? 'enter' : 'create',
   )
-  const [needsEditorKey, setNeedsEditorKey] = useState(
-    () => mode === 'enter' && !localStorage.getItem(EDITOR_KEY_STORAGE),
-  )
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState('')
-  const [submitting, setSubmitting] = useState(false)
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -51,23 +37,9 @@ function PinGate({ onUnlock }) {
         setError('PINs do not match.')
         return
       }
-      const trimmedKey = editorKeyDraft.trim()
-      if (!trimmedKey) {
-        setError('Enter your editor API key once — it stays on this device.')
-        return
-      }
-      setSubmitting(true)
-      const verified = await verifyEditorKey(trimmedKey)
-      if (!verified.ok) {
-        setError(verified.error)
-        setSubmitting(false)
-        return
-      }
       const digest = await hashPin(input)
       localStorage.setItem(MANAGER_PIN_KEY, digest)
-      localStorage.setItem(EDITOR_KEY_STORAGE, trimmedKey)
-      setSubmitting(false)
-      onUnlock('Editor', trimmedKey)
+      onUnlock('Editor')
       return
     }
 
@@ -78,41 +50,16 @@ function PinGate({ onUnlock }) {
       return
     }
 
-    let editorKey = localStorage.getItem(EDITOR_KEY_STORAGE)
-    if (!editorKey || needsEditorKey) {
-      const trimmedKey = editorKeyDraft.trim()
-      if (!trimmedKey) {
-        setNeedsEditorKey(true)
-        setError('Enter your editor API key once — then only your PIN is needed.')
-        return
-      }
-      setSubmitting(true)
-      const verified = await verifyEditorKey(trimmedKey)
-      if (!verified.ok) {
-        setError(verified.error)
-        setSubmitting(false)
-        return
-      }
-      localStorage.setItem(EDITOR_KEY_STORAGE, trimmedKey)
-      editorKey = trimmedKey
-      setSubmitting(false)
-    }
-
-    onUnlock('Editor', editorKey)
+    onUnlock('Editor')
   }
 
   function resetSetup() {
     localStorage.removeItem(MANAGER_PIN_KEY)
-    localStorage.removeItem(EDITOR_KEY_STORAGE)
     setMode('create')
-    setNeedsEditorKey(false)
     setInput('')
     setConfirm('')
-    setEditorKeyDraft('')
     setError('')
   }
-
-  const showEditorKeyField = mode === 'create' || needsEditorKey
 
   return (
     <div className="mx-auto mt-20 max-w-xs">
@@ -125,7 +72,7 @@ function PinGate({ onUnlock }) {
       <hr className="signal mb-6" />
       <p className="font-mono text-[10px] uppercase tracking-widest text-[var(--muted)] mb-4">
         {mode === 'create'
-          ? 'Create a PIN and link this device to the editor API'
+          ? 'Create a 4-digit PIN to access the demo editor panel'
           : 'Enter your PIN to continue'}
       </p>
       <form onSubmit={handleSubmit} className="space-y-3">
@@ -150,31 +97,16 @@ function PinGate({ onUnlock }) {
             placeholder="Confirm PIN"
           />
         )}
-        {showEditorKeyField && (
-          <div>
-            <label className="mb-1.5 block font-mono text-[9px] uppercase tracking-widest text-[var(--muted)]">
-              Editor API key {mode === 'enter' ? '(one time)' : ''}
-            </label>
-            <input
-              type="password"
-              value={editorKeyDraft}
-              onChange={(e) => setEditorKeyDraft(e.target.value)}
-              className="w-full rounded-none border border-[var(--border)] bg-[var(--surface-hi)] px-4 py-3 font-mono text-sm text-[var(--text-hi)] outline-none focus:border-[var(--signal)]"
-              placeholder="From wrangler secret put EDITOR_SECRET"
-            />
-          </div>
-        )}
         {error && (
           <p className="font-mono text-[10px] text-[var(--signal)] uppercase tracking-wide">{error}</p>
         )}
         <motion.button
           type="submit"
-          disabled={submitting}
-          className="signal-glow-hover w-full bg-[var(--signal)] py-3 text-[11px] font-bold uppercase tracking-[.12em] text-[var(--signal-on)] disabled:opacity-50"
+          className="signal-glow-hover w-full bg-[var(--signal)] py-3 text-[11px] font-bold uppercase tracking-[.12em] text-[var(--signal-on)]"
           whileHover={{ scale: 1.01 }}
           whileTap={{ scale: 0.98 }}
         >
-          {submitting ? 'Verifying…' : mode === 'create' ? 'Set up & Enter' : 'Unlock'}
+          {mode === 'create' ? 'Create PIN & Enter' : 'Unlock'}
         </motion.button>
         {mode === 'enter' && (
           <button
@@ -182,7 +114,7 @@ function PinGate({ onUnlock }) {
             onClick={resetSetup}
             className="w-full text-[9px] font-mono uppercase tracking-wide text-[var(--muted)] hover:text-[var(--signal)]"
           >
-            Reset PIN &amp; device setup
+            Reset PIN
           </button>
         )}
       </form>
@@ -342,8 +274,8 @@ function ArticleReviewCard({ post, onApprove, onReject, onUpdateBullets, busy })
 
 export function ManagerPage() {
   const [pinUnlocked, setPinUnlocked] = useState(false)
-  const [editorKey, setEditorKey] = useState('')
   const [editorName, setEditorName] = useState('')
+  const [panel, setPanel] = useState('queue')
   const [filter, setFilter] = useState('pending')
   const [articles, setArticles] = useState([])
   const [pendingCount, setPendingCount] = useState(0)
@@ -352,20 +284,10 @@ export function ManagerPage() {
   const [error, setError] = useState('')
 
   const loadQueue = useCallback(async () => {
-    if (!editorKey) return
     setLoading(true)
     setError('')
     try {
-      const res = await fetch(`/api/editor/articles?filter=${filter}`, {
-        headers: { Authorization: `Bearer ${editorKey}` },
-      })
-      if (res.status === 401) {
-        localStorage.removeItem(EDITOR_KEY_STORAGE)
-        setEditorKey('')
-        setPinUnlocked(false)
-        setError('Editor API key invalid — use Reset on the PIN screen to re-link this device.')
-        return
-      }
+      const res = await fetch(`/api/editor/articles?filter=${filter}`)
       if (!res.ok) throw new Error('fetch_failed')
       const data = await res.json()
       setArticles(data.articles || [])
@@ -375,12 +297,11 @@ export function ManagerPage() {
     } finally {
       setLoading(false)
     }
-  }, [editorKey, filter])
+  }, [filter])
 
   useEffect(() => {
-    if (editorKey) loadQueue()
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload when filter or key changes
-  }, [editorKey, filter])
+    if (pinUnlocked) loadQueue()
+  }, [pinUnlocked, loadQueue])
 
   const filtered = useMemo(() => articles, [articles])
 
@@ -389,10 +310,7 @@ export function ManagerPage() {
     try {
       const res = await fetch(`/api/editor/articles/${encodeURIComponent(id)}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${editorKey}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
       if (!res.ok) throw new Error('patch_failed')
@@ -426,12 +344,13 @@ export function ManagerPage() {
     )
   }
 
-  if (!pinUnlocked || !editorKey) {
+  const flaggedCount = useFlaggedCount(pinUnlocked)
+
+  if (!pinUnlocked) {
     return (
       <PinGate
-        onUnlock={(name, key) => {
+        onUnlock={(name) => {
           setEditorName(name)
-          setEditorKey(key)
           setPinUnlocked(true)
         }}
       />
@@ -448,17 +367,46 @@ export function ManagerPage() {
           </p>
         </div>
         <h1 className="font-display text-4xl uppercase tracking-widest text-[var(--text-hi)]">
-          Review Queue
+          {panel === 'moderation' ? 'Moderation' : 'Review Queue'}
         </h1>
         <hr className="signal mt-3" />
         <p className="mt-3 font-mono text-[10px] text-[var(--muted)] uppercase tracking-wide">
-          {pendingCount} articles awaiting review
+          {panel === 'moderation'
+            ? `${flaggedCount} flagged comment${flaggedCount === 1 ? '' : 's'}`
+            : `${pendingCount} articles awaiting review`}
         </p>
         {error && (
           <p className="mt-2 font-mono text-[10px] text-[var(--signal)] uppercase tracking-wide">{error}</p>
         )}
       </div>
 
+      <div className="flex gap-1 border-b border-[var(--border)] mb-6">
+        {[
+          { id: 'queue', label: 'Queue' },
+          { id: 'moderation', label: flaggedCount > 0 ? `Moderation (${flaggedCount})` : 'Moderation' },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setPanel(tab.id)}
+            className={`relative px-4 py-2.5 font-mono text-[10px] uppercase tracking-widest transition-colors ${
+              panel === tab.id ? 'text-[var(--text-hi)]' : 'text-[var(--muted)] hover:text-[var(--text)]'
+            }`}
+          >
+            {tab.label}
+            {panel === tab.id && (
+              <motion.span
+                layoutId="mgr-panel-tab"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--signal)]"
+              />
+            )}
+          </button>
+        ))}
+      </div>
+
+      {panel === 'moderation' && <ModerationPanel />}
+
+      {panel === 'queue' && (
       <div className="flex gap-1 border-b border-[var(--border)] mb-6">
         {['pending','verified','all'].map(f => (
           <button
@@ -479,13 +427,15 @@ export function ManagerPage() {
           </button>
         ))}
       </div>
+      )}
 
-      {loading && (
+      {panel === 'queue' && loading && (
         <p className="py-8 text-center font-mono text-[10px] uppercase tracking-widest text-[var(--muted)]">
           Loading queue…
         </p>
       )}
 
+      {panel === 'queue' && (
       <div className="space-y-4">
         <AnimatePresence>
           {!loading && filtered.map(post => (
@@ -512,6 +462,7 @@ export function ManagerPage() {
           </p>
         )}
       </div>
+      )}
     </div>
   )
 }

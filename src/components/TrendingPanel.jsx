@@ -2,18 +2,19 @@ import { motion, useSpring, useMotionValueEvent } from 'framer-motion'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useFeedStore } from '../stores/feedStore'
+import { postMatchesTopic } from '../data/exploreTopics'
 import { formatSource } from '../lib/displayUtils'
 
 /** [EXP-3] category prop filters trending list to one topic */
-export function TrendingPanel({ category = null }) {
-  const posts = useFeedStore((s) => s.posts)
+export function TrendingPanel({ category = null, posts: postsProp = null }) {
+  const storePosts = useFeedStore((s) => (s.allPosts.length ? s.allPosts : s.posts))
+  const posts = postsProp ?? storePosts
   const trending = useMemo(() => {
     return [...posts]
       .filter((p) => {
         if (p.hidden || p.verified === false) return false // [WRK-6]
         if (category === null) return true // [EXP-3]
-        const label = p.category === 'Tech' ? 'Technology' : p.category // [CAT-2]
-        return label === category // [EXP-3]
+        return postMatchesTopic(p, category) // [EXP-3]
       })
       .sort((a, b) => (b.num_comments || 0) - (a.num_comments || 0))
       .slice(0, 8)

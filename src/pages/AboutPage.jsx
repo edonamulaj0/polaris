@@ -10,8 +10,9 @@ export function AboutPage() {
         <h2 className="font-heading text-xl font-semibold text-[var(--text)]">What Polaris is</h2>
         <p className="text-[var(--muted)]">
           Polaris is a civic-intelligence reader: it surfaces polarized debates in technology,
-          science, and nature, explains what each side argues using AI, and lets you register your
-          stance. Human editors review and verify summaries before they appear in the public feed.
+          science, climate, human rights, politics, religion, and society, explains what each side
+          argues using AI, and lets you register your stance. Human editors review and verify
+          summaries before they appear in the public feed.
         </p>
       </section>
 
@@ -20,7 +21,8 @@ export function AboutPage() {
         <ol className="list-decimal space-y-3 pl-5 text-[var(--muted)]">
           <li>
             <strong className="font-medium text-[var(--text)]">Browse categories</strong> — start on
-            Home or Explore to find discussions in Technology, Science, or Nature.
+            Home or Explore to find debates across technology, climate, human rights, politics,
+            religion, education, and more.
           </li>
           <li>
             <strong className="font-medium text-[var(--text)]">Read both sides</strong> — each

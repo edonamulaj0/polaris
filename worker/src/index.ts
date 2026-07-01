@@ -8,13 +8,14 @@ import { usersRouter } from './routes/users';
 import { articlesRouter } from './routes/articles';
 import { topicsRouter } from './routes/topics';
 import { editorRouter } from './routes/editor';
+import { debatesRouter, commentDeleteRouter } from './routes/comments';
 import { runIngest } from './jobs/ingest';
 
 const app = new Hono<{ Bindings: Env }>();
 
 app.use(
   '*',
-  cors({ origin: '*', allowMethods: ['GET', 'POST', 'PATCH', 'OPTIONS'] }),
+  cors({ origin: '*', allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'] }),
 );
 
 app.get('/api/health', (c) => {
@@ -25,6 +26,8 @@ app.route('/api/users', usersRouter);
 app.route('/api/articles', articlesRouter);
 app.route('/api/topics', topicsRouter);
 app.route('/api/editor', editorRouter);
+app.route('/api/debates', debatesRouter);
+app.route('/api/comments', commentDeleteRouter);
 
 export default {
   fetch: app.fetch,
